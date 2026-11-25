@@ -199,6 +199,7 @@ const (
 	defaultRPCMaxQueuedRequests               = 2048
 	defaultRPCMaxWSConnections                = 0
 	defaultRPCMaxSubscriptions                = 0
+	defaultRPCMaxSubscriptionsMemory          = 0
 	defaultRPCMaxBatchSize                    = 1000
 	defaultRPCMaxBatchResponseSize            = 64 // MB
 	defaultRPCBatchConcurrency                = uint(0)
@@ -312,14 +313,15 @@ const (
 	rpcMaxRequestQueueUsage = "Maximum number of HTTP RPC requests to queue after " +
 		"reaching rpc-max-concurrent-requests limit. Websocket requests are never queued."
 	rpcMaxWSConnectionsUsage = "Maximum concurrent websocket connections, across all " +
-		"RPC versions. 0 disables the limit."
+		"RPC versions. 0 (default) disables the limit."
 	rpcMaxSubscriptionsUsage = "Maximum subscriptions one websocket connection may hold. " +
 		"The limit is per connection so that one client cannot take the slots another needs; " +
 		"multiplied by rpc-max-ws-connections it is the most the process will carry. " +
-		"0 disables the limit."
-	rpcMaxSubscriptionsMemoryUsage = "Size (in MBs) of memory all websocket subscriptions " +
-		"may hold together, estimated from their filters. Defaults to 10% of available memory " +
-		"(cgroup limit, else host RAM), clamped to [256, 4096] MB. 0 disables the limit."
+		"0 (default) disables the limit."
+	rpcMaxSubscriptionsMemoryUsage = "Maximum memory (in MB) that all websocket subscriptions " +
+		"may use together, across all connections. Once reached, new subscriptions are rejected " +
+		"until existing ones are closed. Usage is an estimate based on each subscription's " +
+		"filters (addresses and keys), not measured memory. 0 (default) disables the limit."
 	rpcMaxBatchSizeUsage = "Maximum number of calls in a single batch request. " +
 		"0 disables the limit."
 	rpcMaxBatchResponseSizeUsage = "Size (in MBs) at which a batch stops being processed. " +
@@ -566,7 +568,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	defaultNetwork := networks.Mainnet
 	defaultRPCSyncMode := rpcsource.Follow
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
-	defaultRPCMaxSubscriptionsMemory := node.DefaultRPCMaxSubscriptionsMemory()
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	// --- HTTP RPC ---
