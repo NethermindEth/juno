@@ -15,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/db/typed/prefix"
 	"github.com/NethermindEth/juno/migration/blocktransactions"
-	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
 	"github.com/NethermindEth/juno/utils/log"
 	conciter "github.com/sourcegraph/conc/iter"
 	"github.com/stretchr/testify/require"
@@ -116,7 +115,7 @@ func runTestBlockTransactionsMigration(
 			)
 			require.NoError(
 				t,
-				txlayout.TransactionLayoutPerTx.WriteTransactionsAndReceipts(
+				writePerTxTransactionsAndReceipts(
 					batch,
 					uint64(blockNumber),
 					allTransactions[blockNumber],
@@ -135,7 +134,10 @@ func runTestBlockTransactionsMigration(
 				snapshot,
 				allTransactions,
 				allReceipts,
-				txlayout.TransactionLayoutPerTx,
+				perTxTransactionsByBlockNumber,
+				perTxTransactionByBlockAndIndex,
+				perTxReceiptsByBlockNumber,
+				perTxReceiptByBlockAndIndex,
 			)
 		})
 
@@ -195,19 +197,20 @@ func runTestBlockTransactionsMigration(
 							snapshot,
 							allTransactions,
 							allReceipts,
-							txlayout.TransactionLayoutCombined,
+							combinedTransactionsByBlockNumber,
+							combinedTransactionByBlockAndIndex,
+							combinedReceiptsByBlockNumber,
+							combinedReceiptByBlockAndIndex,
 						)
 					})
 
 					t.Run("PerTx layout should be empty", func(t *testing.T) {
 						assertEmptyBucket(
 							t,
-							//nolint:staticcheck,nolintlint // old transaction layout
 							core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Prefix().Scan(snapshot),
 						)
 						assertEmptyBucket(
 							t,
-							//nolint:staticcheck,nolintlint // old transaction layout
 							core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Prefix().Scan(snapshot),
 						)
 					})
@@ -217,12 +220,151 @@ func runTestBlockTransactionsMigration(
 	})
 }
 
+func writePerTxTransactionsAndReceipts(
+	w db.KeyValueWriter,
+	blockNumber uint64,
+	transactions []core.Transaction,
+	receipts []*core.TransactionReceipt,
+) error {
+	for index, tx := range transactions {
+		key := db.BlockNumIndexKey{
+			Number: blockNumber,
+			Index:  uint64(index),
+		}
+
+		if err := core.TransactionBlockNumbersAndIndicesByHashBucket.Put(
+			w,
+			tx.Hash(),
+			&key,
+		); err != nil {
+			return err
+		}
+
+		//nolint:staticcheck // Intentionally writing to deprecated per-tx bucket.
+		if err := core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Put(
+			w,
+			key,
+			&tx,
+		); err != nil {
+			return err
+		}
+
+		//nolint:staticcheck // Intentionally writing to deprecated per-tx bucket.
+		if err := core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Put(
+			w,
+			key,
+			receipts[index],
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func perTxTransactionsByBlockNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) ([]core.Transaction, error) {
+	var transactions []core.Transaction
+	//nolint:staticcheck // Intentionally reading from deprecated per-tx bucket.
+	iterator := core.DeprecatedTransactionsByBlockNumberAndIndexBucket.
+		Prefix().
+		Add(blockNum).
+		Scan(r)
+	for entry, err := range iterator {
+		if err != nil {
+			return nil, err
+		}
+		transactions = append(transactions, entry.Value)
+	}
+	return transactions, nil
+}
+
+func perTxTransactionByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber, index uint64,
+) (core.Transaction, error) {
+	key := db.BlockNumIndexKey{
+		Number: blockNumber,
+		Index:  index,
+	}
+
+	//nolint:staticcheck // Intentionally reading from deprecated per-tx bucket.
+	return core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Get(r, key)
+}
+
+func perTxReceiptsByBlockNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) ([]*core.TransactionReceipt, error) {
+	var receipts []*core.TransactionReceipt
+	//nolint:staticcheck // Intentionally reading from deprecated per-tx bucket.
+	iterator := core.DeprecatedReceiptsByBlockNumberAndIndexBucket.
+		Prefix().
+		Add(blockNum).
+		Scan(r)
+	for entry, err := range iterator {
+		if err != nil {
+			return nil, err
+		}
+		receipts = append(receipts, &entry.Value)
+	}
+	return receipts, nil
+}
+
+func perTxReceiptByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber, index uint64,
+) (*core.TransactionReceipt, error) {
+	key := db.BlockNumIndexKey{
+		Number: blockNumber,
+		Index:  index,
+	}
+	//nolint:staticcheck // Intentionally reading from deprecated per-tx bucket.
+	receipt, err := core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Get(r, key)
+	if err != nil {
+		return nil, err
+	}
+	return &receipt, nil
+}
+
+func combinedTransactionsByBlockNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) ([]core.Transaction, error) {
+	return core.BlockTransactionsAllTransactionsPartialBucket.Get(r, blockNum, struct{}{})
+}
+
+func combinedTransactionByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber, index uint64,
+) (core.Transaction, error) {
+	return core.BlockTransactionsTransactionPartialBucket.Get(r, blockNumber, int(index))
+}
+
+func combinedReceiptsByBlockNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) ([]*core.TransactionReceipt, error) {
+	return core.BlockTransactionsAllReceiptsPartialBucket.Get(r, blockNum, struct{}{})
+}
+
+func combinedReceiptByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber, index uint64,
+) (*core.TransactionReceipt, error) {
+	return core.BlockTransactionsReceiptPartialBucket.Get(r, blockNumber, int(index))
+}
+
 func assertData(
 	t *testing.T,
 	snapshot db.KeyValueReader,
 	allTransactions [][]core.Transaction,
 	allReceipts [][]*core.TransactionReceipt,
-	layout txlayout.TransactionLayout,
+	txsByBlock func(db.KeyValueReader, uint64) ([]core.Transaction, error),
+	txByBlockAndIndex func(db.KeyValueReader, uint64, uint64) (core.Transaction, error),
+	receiptsByBlock func(db.KeyValueReader, uint64) ([]*core.TransactionReceipt, error),
+	receiptByBlockAndIndex func(db.KeyValueReader, uint64, uint64) (*core.TransactionReceipt, error),
 ) {
 	t.Helper()
 
@@ -231,8 +373,8 @@ func assertData(
 			t,
 			snapshot,
 			allTransactions,
-			layout.TransactionsByBlockNumber,
-			layout.TransactionByBlockAndIndex,
+			txsByBlock,
+			txByBlockAndIndex,
 		)
 	})
 
@@ -241,8 +383,8 @@ func assertData(
 			t,
 			snapshot,
 			allReceipts,
-			layout.ReceiptsByBlockNumber,
-			layout.ReceiptByBlockAndIndex,
+			receiptsByBlock,
+			receiptByBlockAndIndex,
 		)
 	})
 }
