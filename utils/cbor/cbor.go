@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
+	"github.com/NethermindEth/juno/utils/cbor/internal/typetags"
 )
 
 // RawMessage is an item that is already CBOR encoded.
@@ -50,5 +51,10 @@ func NewEncoder(w io.Writer) Encoder {
 // RegisterType gives a unique CBOR tag to a type.
 // Only call this from utils/cbor/registry's init, before concurrent use.
 func RegisterType(t reflect.Type) error {
-	return fxamacker.RegisterType(t)
+	tag, err := fxamacker.RegisterType(t)
+	if err != nil {
+		return err
+	}
+	typetags.Record(t, tag)
+	return nil
 }

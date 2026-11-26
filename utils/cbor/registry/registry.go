@@ -6,9 +6,11 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/utils/cbor"
+	"github.com/NethermindEth/juno/utils/cbor/fastcbor"
 )
 
 var once sync.Once
@@ -44,5 +46,25 @@ func init() {
 				panic(err)
 			}
 		}
+
+		for _, t := range []reflect.Type{
+			reflect.TypeFor[felt.Felt](),
+			reflect.TypeFor[felt.Address](),
+			reflect.TypeFor[felt.Hash](),
+			reflect.TypeFor[felt.ClassHash](),
+			reflect.TypeFor[felt.SierraClassHash](),
+			reflect.TypeFor[felt.CasmClassHash](),
+			reflect.TypeFor[felt.TransactionHash](),
+			reflect.TypeFor[felt.StateRootHash](),
+			reflect.TypeFor[felt.Slice[felt.Felt]](),
+			reflect.TypeFor[core.TransactionVersion](),
+		} {
+			if err := fastcbor.RegisterFelt(t); err != nil {
+				panic(err)
+			}
+		}
+		fastcbor.RegisterFeltMap[felt.Felt, felt.Felt]()
+		fastcbor.RegisterFeltStorageMap[felt.Felt, felt.Felt]()
+		fastcbor.RegisterFeltValueMap[felt.SierraClassHash, felt.CasmClassHash]()
 	})
 }

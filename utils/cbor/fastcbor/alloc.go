@@ -1,0 +1,58 @@
+package fastcbor
+
+import (
+	"reflect"
+	"unsafe"
+)
+
+// reflect.New looks up the type of a pointer to what it allocates before it allocates. These are
+// the runtime's allocators behind reflect, which take the type itself. The reflect ones are kept
+// stable for outside users (go.dev/issue/67401), the map assignment ones are not.
+
+// runtimeType is the runtime's description of a type, which a reflect.Type points to.
+type runtimeType struct{}
+
+// runtimeTypeOf returns the runtime's description of t.
+func runtimeTypeOf(t reflect.Type) *runtimeType {
+	return (*runtimeType)((*[2]unsafe.Pointer)(unsafe.Pointer(&t))[1])
+}
+
+// unsafe_New returns a new zeroed value of the type.
+//
+//go:linkname unsafe_New reflect.unsafe_New
+//nolint:revive // the name is the runtime's
+func unsafe_New(*runtimeType) unsafe.Pointer
+
+// unsafe_NewArray returns a new zeroed array of n values of the type.
+//
+//go:linkname unsafe_NewArray reflect.unsafe_NewArray
+//nolint:revive // the name is the runtime's
+func unsafe_NewArray(typ *runtimeType, n int) unsafe.Pointer
+
+// makemap returns a new map of the type with room for cap entries.
+//
+//go:linkname makemap reflect.makemap
+func makemap(t *runtimeType, cap int) unsafe.Pointer
+
+// typedmemclr zeroes the value of the type that ptr points to.
+//
+//go:linkname typedmemclr reflect.typedmemclr
+func typedmemclr(t *runtimeType, ptr unsafe.Pointer)
+
+// mapassign returns where the map keeps the value of the key, which is zeroed if the map had no
+// such key. The value stays valid until the map next grows.
+//
+//go:linkname mapassign runtime.mapassign
+func mapassign(t *runtimeType, m, key unsafe.Pointer) unsafe.Pointer
+
+// mapassign_fast32 is mapassign for a map whose keys are 4 bytes of integer.
+//
+//go:linkname mapassign_fast32 runtime.mapassign_fast32
+//nolint:revive // the name is the runtime's
+func mapassign_fast32(t *runtimeType, m unsafe.Pointer, key uint32) unsafe.Pointer
+
+// mapassign_fast64 is mapassign for a map whose keys are 8 bytes of integer.
+//
+//go:linkname mapassign_fast64 runtime.mapassign_fast64
+//nolint:revive // the name is the runtime's
+func mapassign_fast64(t *runtimeType, m unsafe.Pointer, key uint64) unsafe.Pointer

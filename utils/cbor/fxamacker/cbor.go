@@ -45,19 +45,20 @@ func newStrictMode() fxcbor.DecMode {
 	return mode
 }
 
-// RegisterType gives a unique CBOR tag to a type.
+// RegisterType assigns and returns a unique CBOR tag for the type.
 // Used by the CBOR entry point during utils/cbor/registry initialization.
-func RegisterType(rType reflect.Type) error {
+func RegisterType(rType reflect.Type) (uint64, error) {
+	tag := tagNum
 	if err := ts.Add(
 		fxcbor.TagOptions{EncTag: fxcbor.EncTagRequired, DecTag: fxcbor.DecTagRequired},
 		rType,
-		tagNum,
+		tag,
 	); err != nil {
-		return err
+		return 0, err
 	}
 	encMode, decMode = newEncMode(), newDecMode()
 	tagNum++
-	return nil
+	return tag, nil
 }
 
 // Marshal returns encoding of param v
