@@ -1,15 +1,18 @@
 package cursor
 
 import (
-	"encoding/binary"
+	"errors"
+	"io"
 	"unsafe"
+
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 // Limbs is the number of limbs in a felt, each a 64-bit value. feltHead is the head of its array,
 // and feltLen the length of the uint64 form Juno writes, which is the array head and four limbs,
 // each an eight-byte integer with its own head byte.
 const (
-	Limbs    = 4
+	Limbs    = felt.Limbs
 	feltHead = majorArray | Limbs
 	feltLen  = 1 + Limbs*(1+8)
 )
@@ -25,77 +28,30 @@ func wideFelt(buf []byte) bool {
 
 // Limbs reads a legacy array of Montgomery limbs or a compact felt. dst is written only on success.
 func (c *Cursor) Limbs(dst *[Limbs]uint64) error {
-	// A felt is an array, a level of its own. The uint64 form and shortLimbs below do not count it.
-	if c.depth >= maxNestedLevels {
-		return c.limbsSlow(dst)
-	}
 	buf := c.buf[c.pos:]
-	if wideFelt(buf) {
-		dst[0] = binary.BigEndian.Uint64(buf[2:])
-		dst[1] = binary.BigEndian.Uint64(buf[11:])
-		dst[2] = binary.BigEndian.Uint64(buf[20:])
-		dst[3] = binary.BigEndian.Uint64(buf[29:])
-		c.pos += feltLen
-		return nil
-	}
-	if n := shortLimbs(buf, dst); n > 0 {
-		c.pos += n
-		return nil
-	}
-	return c.limbsSlow(dst)
-}
-
-// shortLimbs reads a felt whose limbs have any width and returns the bytes it took, or 0 for
-// another form.
-func shortLimbs(buf []byte, dst *[Limbs]uint64) int {
-	if len(buf) == 0 || buf[0] != feltHead {
-		return 0
-	}
-	var limbs [Limbs]uint64
-	n := 1
-	for i := range limbs {
-		if n >= len(buf) {
-			return 0
-		}
-		head := buf[n]
-		switch {
-		case head < info1Byte:
-			limbs[i] = uint64(head)
-			n++
-		case head == info1Byte && n+2 <= len(buf):
-			limbs[i] = uint64(buf[n+1])
-			n += 2
-		case head == info2Byte && n+3 <= len(buf):
-			limbs[i] = uint64(binary.BigEndian.Uint16(buf[n+1:]))
-			n += 3
-		case head == info4Byte && n+5 <= len(buf):
-			limbs[i] = uint64(binary.BigEndian.Uint32(buf[n+1:]))
-			n += 5
-		case head == info8Byte && n+9 <= len(buf):
-			limbs[i] = binary.BigEndian.Uint64(buf[n+1:])
-			n += 9
-		default:
-			return 0
+	if len(buf) > 0 {
+		major := buf[0] & majorMask
+		compact := major == MajorUint || major == majorBytes
+		if compact || (buf[0] == feltHead && c.depth < maxNestedLevels) {
+			n, err := (*felt.Felt)(dst).UnmarshalCBORPrefix(buf)
+			if err == nil {
+				c.pos += n
+				return nil
+			}
+			if compact {
+				kind := ErrUnsupported
+				if errors.Is(err, io.ErrUnexpectedEOF) {
+					kind = ErrTruncated
+				}
+				return c.fail(kind, "%v", err)
+			}
 		}
 	}
-	*dst = limbs
-	return n
+	return c.legacyLimbs(dst)
 }
 
-// isCompact reports whether buf starts with a uint or a byte string, the heads of a compact felt.
-func isCompact(buf []byte) bool {
-	if len(buf) == 0 {
-		return false
-	}
-	major := buf[0] & majorMask
-	return major == MajorUint || major == majorBytes
-}
-
-// limbsSlow reads a felt whose limbs are not all eight bytes wide.
-func (c *Cursor) limbsSlow(dst *[Limbs]uint64) error {
-	if isCompact(c.buf[c.pos:]) {
-		return c.compactLimbs(dst)
-	}
+// legacyLimbs handles general CBOR arrays and enforces the nesting limit.
+func (c *Cursor) legacyLimbs(dst *[Limbs]uint64) error {
 	if c.valid() {
 		if head := c.buf[c.pos]; head&majorMask != majorArray {
 			return c.mismatch("a felt", head)
@@ -162,31 +118,11 @@ func LimbSlice[F ~[Limbs]uint64](c *Cursor) ([]F, error) {
 
 // readLimbs fills felts from consecutive felts in the input. It may write felts before failing.
 func (c *Cursor) readLimbs(felts [][Limbs]uint64) error {
-	buf := c.buf[c.pos:]
 	for i := range felts {
-		if c.depth < maxNestedLevels && wideFelt(buf) {
-			felt := &felts[i]
-			felt[0] = binary.BigEndian.Uint64(buf[2:])
-			felt[1] = binary.BigEndian.Uint64(buf[11:])
-			felt[2] = binary.BigEndian.Uint64(buf[20:])
-			felt[3] = binary.BigEndian.Uint64(buf[29:])
-			buf = buf[feltLen:]
-			continue
-		}
-		c.pos = len(c.buf) - len(buf)
-		var err error
-		if isCompact(buf) {
-			// Limbs would hand a compact felt to the same reader.
-			err = c.compactLimbs(&felts[i])
-		} else {
-			err = c.Limbs(&felts[i])
-		}
-		if err != nil {
+		if err := c.Limbs(&felts[i]); err != nil {
 			return err
 		}
-		buf = c.buf[c.pos:]
 	}
-	c.pos = len(c.buf) - len(buf)
 	return nil
 }
 

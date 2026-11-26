@@ -213,3 +213,23 @@ func requireLegacyDecodeEquivalent(t *testing.T, data []byte) {
 	require.NoError(t, errFast, "rejected input the generic decoder accepted: % x", data)
 	require.Equal(t, generic, fast, "decoded value mismatch for % x", data)
 }
+
+func TestUnmarshalCBORPrefix(t *testing.T) {
+	for _, value := range []string{"07", "4118", "8401020304"} {
+		data := mustDecodeHex(t, value)
+		var got, want felt.Felt
+		require.NoError(t, want.UnmarshalCBOR(data))
+		n, err := got.UnmarshalCBORPrefix(append(data, 0xff))
+		require.NoError(t, err)
+		require.Equal(t, len(data), n)
+		require.Equal(t, want, got)
+	}
+	for _, data := range [][]byte{nil, {0x58}, {0x41, 1}, {0x84, 1, 2}} {
+		want := felt.FromUint64[felt.Felt](73)
+		got := want
+		n, err := got.UnmarshalCBORPrefix(data)
+		require.Error(t, err)
+		require.Zero(t, n)
+		require.Equal(t, want, got)
+	}
+}

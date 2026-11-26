@@ -10,17 +10,17 @@ import (
 	"math"
 	"slices"
 
-	"github.com/NethermindEth/juno/utils/cbor"
+	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 type Slice[F FeltLike] []F
 
 var (
-	_ json.MarshalerTo     = Slice[Felt]{}
-	_ json.UnmarshalerFrom = (*Slice[Felt])(nil)
-	_ cbor.SelfEncoder     = Slice[Felt]{}
-	_ cbor.SelfDecoder     = (*Slice[Felt])(nil)
+	_ json.MarshalerTo      = Slice[Felt]{}
+	_ json.UnmarshalerFrom  = (*Slice[Felt])(nil)
+	_ fxamacker.SelfEncoder = Slice[Felt]{}
+	_ fxamacker.SelfDecoder = (*Slice[Felt])(nil)
 )
 
 const (
@@ -64,8 +64,8 @@ func (s *Slice[F]) UnmarshalCBOR(data []byte) error {
 	buffer := make([]F, size)
 	for i := range buffer {
 		var element fp.Element
-		consumed, ok := decodeCBOR(data[offset:], &element)
-		if !ok {
+		consumed, err := (*Felt)(&element).UnmarshalCBORPrefix(data[offset:])
+		if err != nil {
 			return s.unmarshalGeneric(data)
 		}
 		buffer[i] = F(element)
@@ -83,7 +83,7 @@ func (s *Slice[F]) UnmarshalCBOR(data []byte) error {
 // unmarshalGeneric handles any shape the fast path does not recognise.
 func (s *Slice[F]) unmarshalGeneric(data []byte) error {
 	var buffer []F
-	if err := cbor.Unmarshal(data, &buffer); err != nil {
+	if err := fxamacker.Unmarshal(data, &buffer); err != nil {
 		return err
 	}
 

@@ -4,8 +4,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 
-	"github.com/NethermindEth/juno/utils/cbor"
+	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
@@ -17,8 +18,8 @@ import (
 // trims standalone values (cbor_compact.go or cbor_legacy.go). SetMinimalBytes reads both.
 
 var (
-	_ cbor.SelfEncoder = (*Felt)(nil)
-	_ cbor.SelfDecoder = (*Felt)(nil)
+	_ fxamacker.SelfEncoder = (*Felt)(nil)
+	_ fxamacker.SelfDecoder = (*Felt)(nil)
 )
 
 // UnmarshalCBOR decodes a compact or legacy felt that spans all of data, writing z only on success.
@@ -75,6 +76,7 @@ const (
 )
 
 var (
+	errFeltLegacyArray    = errors.New("expected a four-limb array of unsigned integers")
 	errFeltTrailingBytes  = errors.New("trailing bytes")
 	errFeltTruncated      = errors.New("truncated byte string")
 	errFeltUintTooLarge   = errors.New("uint of 24 or more must be a byte string")
@@ -115,7 +117,7 @@ func unmarshalLegacyCBOR(data []byte, value *fp.Element) error {
 		*value = decoded
 		return nil
 	}
-	if err := cbor.Unmarshal(data, value); err != nil {
+	if err := fxamacker.Unmarshal(data, value); err != nil {
 		return fmt.Errorf("decoding legacy felt: %w", err)
 	}
 	return nil
@@ -232,14 +234,24 @@ func belowModulus(limbs *[Limbs]uint64) bool {
 	return false
 }
 
-// decodeCBOR decodes one compact or legacy felt at data[0:], returning the bytes consumed.
-// It reports false on anything the fast path rejects, so the caller can fall back.
-func decodeCBOR(data []byte, value *fp.Element) (int, bool) {
-	if len(data) > 0 && isCompactCBOR(data[0]) {
-		consumed, err := decodeCompact(data, value)
-		return consumed, err == nil
+// UnmarshalCBORPrefix reads one compact felt or four-limb legacy array and returns
+// its encoded length. Trailing bytes are allowed. On error it consumes zero bytes
+// and leaves z unchanged. UnmarshalCBOR additionally handles general CBOR arrays.
+func (z *Typed[K]) UnmarshalCBORPrefix(data []byte) (int, error) {
+	if len(data) == 0 {
+		return 0, io.ErrUnexpectedEOF
 	}
-	return decodeLegacyLimbs(data, value)
+	if isCompactCBOR(data[0]) {
+		n, err := decodeCompact(data, (*fp.Element)(z))
+		if err != nil && errors.Is(err, errFeltTruncated) {
+			return 0, fmt.Errorf("%w: %w", err, io.ErrUnexpectedEOF)
+		}
+		return n, err
+	}
+	if n, ok := decodeLegacyLimbs(data, (*fp.Element)(z)); ok {
+		return n, nil
+	}
+	return 0, errFeltLegacyArray
 }
 
 // decodeLegacyLimbs decodes one limb-encoded felt at data[0:],
