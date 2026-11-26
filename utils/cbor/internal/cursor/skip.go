@@ -1,5 +1,7 @@
 package cursor
 
+import "github.com/NethermindEth/juno/internal/feltcbor"
+
 // Skip consumes the next item and checks its syntax, but not UTF-8. Indefinite-length items and
 // tags 0-3, whose content only a reader that returns the value can check, are ErrUnsupported.
 // It consumes nothing on error.
@@ -18,8 +20,8 @@ func (c *Cursor) Skip() error {
 func (c *Cursor) skip(depth int) error {
 	// A felt in the uint64 form is the bulk of a record and needs no head decoding. It opens a level
 	// of its own.
-	if buf := c.buf[c.pos:]; depth < maxNestedLevels && wideFelt(buf) {
-		c.pos += feltLen
+	if buf := c.buf[c.pos:]; depth < maxNestedLevels && feltcbor.IsWide(buf) {
+		c.pos += feltcbor.WideLen
 		return nil
 	}
 
@@ -82,8 +84,8 @@ func (c *Cursor) skipElements(count, limit uint64, perCount, depth int) error {
 		return c.fail(ErrTruncated, "count exceeds the input")
 	}
 	for n := count * uint64(perCount); n > 0; n-- {
-		if buf := c.buf[c.pos:]; depth < maxNestedLevels && wideFelt(buf) {
-			c.pos += feltLen
+		if buf := c.buf[c.pos:]; depth < maxNestedLevels && feltcbor.IsWide(buf) {
+			c.pos += feltcbor.WideLen
 			continue
 		}
 		if err := c.skip(depth); err != nil {

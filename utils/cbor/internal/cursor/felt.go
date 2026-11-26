@@ -1,101 +1,45 @@
 package cursor
 
 import (
-	"encoding/binary"
+	"errors"
 	"unsafe"
+
+	"github.com/NethermindEth/juno/internal/feltcbor"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
-// Limbs is the number of limbs in a felt, each a 64-bit value. feltHead is the head of its array,
-// and feltLen the length of the uint64 form Juno writes, which is the array head and four limbs,
-// each an eight-byte integer with its own head byte.
-const (
-	Limbs    = 4
-	feltHead = majorArray | Limbs
-	feltLen  = 1 + Limbs*(1+8)
-)
-
-// limbHead is the head of a limb in the eight-byte form.
-const limbHead = MajorUint | info8Byte
-
-// wideFelt reports whether buf starts with a felt whose four limbs all take the eight-byte form.
-func wideFelt(buf []byte) bool {
-	return len(buf) >= feltLen && buf[0] == feltHead &&
-		buf[1] == limbHead && buf[10] == limbHead && buf[19] == limbHead && buf[28] == limbHead
-}
+// Limbs is the number of words in a felt.
+const Limbs = fp.Limbs
 
 // Limbs reads a legacy array of Montgomery limbs or a compact felt. dst is written only on success.
 func (c *Cursor) Limbs(dst *[Limbs]uint64) error {
-	// A felt is an array, a level of its own. The uint64 form and shortLimbs below do not count it.
-	if c.depth >= maxNestedLevels {
-		return c.limbsSlow(dst)
-	}
 	buf := c.buf[c.pos:]
-	if wideFelt(buf) {
-		dst[0] = binary.BigEndian.Uint64(buf[2:])
-		dst[1] = binary.BigEndian.Uint64(buf[11:])
-		dst[2] = binary.BigEndian.Uint64(buf[20:])
-		dst[3] = binary.BigEndian.Uint64(buf[29:])
-		c.pos += feltLen
+	// Read the common full-width array directly, as in the bulk reader below.
+	if c.depth < maxNestedLevels && feltcbor.IsWide(buf) {
+		feltcbor.ReadWide(buf, (*fp.Element)(dst))
+		c.pos += feltcbor.WideLen
 		return nil
 	}
-	if n := shortLimbs(buf, dst); n > 0 {
-		c.pos += n
-		return nil
-	}
-	return c.limbsSlow(dst)
-}
-
-// shortLimbs reads a felt whose limbs have any width and returns the bytes it took, or 0 for
-// another form.
-func shortLimbs(buf []byte, dst *[Limbs]uint64) int {
-	if len(buf) == 0 || buf[0] != feltHead {
-		return 0
-	}
-	var limbs [Limbs]uint64
-	n := 1
-	for i := range limbs {
-		if n >= len(buf) {
-			return 0
+	// Legacy arrays consume one nesting level. Compact integers and byte strings consume none.
+	if c.depth < maxNestedLevels || (len(buf) > 0 && buf[0]&majorMask != majorArray) {
+		n, err := feltcbor.Decode(buf, (*fp.Element)(dst))
+		if err == nil {
+			c.pos += n
+			return nil
 		}
-		head := buf[n]
-		switch {
-		case head < info1Byte:
-			limbs[i] = uint64(head)
-			n++
-		case head == info1Byte && n+2 <= len(buf):
-			limbs[i] = uint64(buf[n+1])
-			n += 2
-		case head == info2Byte && n+3 <= len(buf):
-			limbs[i] = uint64(binary.BigEndian.Uint16(buf[n+1:]))
-			n += 3
-		case head == info4Byte && n+5 <= len(buf):
-			limbs[i] = uint64(binary.BigEndian.Uint32(buf[n+1:]))
-			n += 5
-		case head == info8Byte && n+9 <= len(buf):
-			limbs[i] = binary.BigEndian.Uint64(buf[n+1:])
-			n += 9
-		default:
-			return 0
+		if err != feltcbor.ErrLegacy {
+			kind := ErrUnsupported
+			if errors.Is(err, feltcbor.ErrTruncated) {
+				kind = ErrTruncated
+			}
+			return c.fail(kind, "%v", err)
 		}
 	}
-	*dst = limbs
-	return n
+	return c.legacyLimbs(dst)
 }
 
-// isCompact reports whether buf starts with a uint or a byte string, the heads of a compact felt.
-func isCompact(buf []byte) bool {
-	if len(buf) == 0 {
-		return false
-	}
-	major := buf[0] & majorMask
-	return major == MajorUint || major == majorBytes
-}
-
-// limbsSlow reads a felt whose limbs are not all eight bytes wide.
-func (c *Cursor) limbsSlow(dst *[Limbs]uint64) error {
-	if isCompact(c.buf[c.pos:]) {
-		return c.compactLimbs(dst)
-	}
+// legacyLimbs handles other CBOR arrays under the cursor's nesting limit.
+func (c *Cursor) legacyLimbs(dst *[Limbs]uint64) error {
 	if c.valid() {
 		if head := c.buf[c.pos]; head&majorMask != majorArray {
 			return c.mismatch("a felt", head)
@@ -164,24 +108,13 @@ func LimbSlice[F ~[Limbs]uint64](c *Cursor) ([]F, error) {
 func (c *Cursor) readLimbs(felts [][Limbs]uint64) error {
 	buf := c.buf[c.pos:]
 	for i := range felts {
-		if c.depth < maxNestedLevels && wideFelt(buf) {
-			felt := &felts[i]
-			felt[0] = binary.BigEndian.Uint64(buf[2:])
-			felt[1] = binary.BigEndian.Uint64(buf[11:])
-			felt[2] = binary.BigEndian.Uint64(buf[20:])
-			felt[3] = binary.BigEndian.Uint64(buf[29:])
-			buf = buf[feltLen:]
+		if c.depth < maxNestedLevels && feltcbor.IsWide(buf) {
+			feltcbor.ReadWide(buf, (*fp.Element)(&felts[i]))
+			buf = buf[feltcbor.WideLen:]
 			continue
 		}
 		c.pos = len(c.buf) - len(buf)
-		var err error
-		if isCompact(buf) {
-			// Limbs would hand a compact felt to the same reader.
-			err = c.compactLimbs(&felts[i])
-		} else {
-			err = c.Limbs(&felts[i])
-		}
-		if err != nil {
+		if err := c.Limbs(&felts[i]); err != nil {
 			return err
 		}
 		buf = c.buf[c.pos:]

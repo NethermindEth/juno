@@ -10,6 +10,7 @@ import (
 	"math"
 	"slices"
 
+	"github.com/NethermindEth/juno/internal/feltcbor"
 	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
@@ -64,8 +65,8 @@ func (s *Slice[F]) UnmarshalCBOR(data []byte) error {
 	buffer := make([]F, size)
 	for i := range buffer {
 		var element fp.Element
-		consumed, ok := decodeCBOR(data[offset:], &element)
-		if !ok {
+		consumed, err := feltcbor.Decode(data[offset:], &element)
+		if err != nil {
 			return s.unmarshalGeneric(data)
 		}
 		buffer[i] = F(element)

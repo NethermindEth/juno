@@ -210,7 +210,7 @@ func (z *Typed[K]) Marshal() []byte {
 }
 
 // feltByteLen is the length of a big-endian felt, and of a Montgomery-form byte string.
-const feltByteLen = Limbs * 8
+const feltByteLen = Bytes
 
 var (
 	errFeltEmpty      = errors.New("empty input")
