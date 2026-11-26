@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"math/big"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
@@ -17,11 +18,6 @@ import (
 //     significant bytes.
 //
 // Other forms return an error.
-const (
-	// maxTrimmed is the longest trimmed value. A string of 31 bytes is reserved.
-	maxTrimmed = fp.Bytes - 2
-)
-
 // smallMontgomery has the Montgomery form of the values 0 to 23, so reading one is a copy.
 var smallMontgomery = func() (table [info1Byte][Limbs]uint64) {
 	for i := range table {
@@ -41,7 +37,7 @@ var rSquare = func() fp.Element {
 }()
 
 // setTrimmed writes to dst the Montgomery limbs of the value with big-endian bytes body. There are
-// at most maxTrimmed of them, so the value is below the modulus and needs no padded copy or range
+// at most felt.MaxTrimmedCBORBytes of them, so the value is below the modulus and needs no padded copy or range
 // check.
 func setTrimmed(dst *[Limbs]uint64, body []byte) {
 	element := (*fp.Element)(dst)
@@ -72,7 +68,7 @@ func belowModulus(limbs *[Limbs]uint64) bool {
 // 30 bytes, the first not zero, and not below 24 when it is a single byte.
 func (c *Cursor) rejectTrimmed(length int, body []byte) error {
 	switch {
-	case length > maxTrimmed:
+	case length > felt.MaxTrimmedCBORBytes:
 		return c.fail(ErrUnsupported, "byte string of %d bytes is reserved", length)
 	case length == 0:
 		return c.fail(ErrUnsupported, "empty byte string")
@@ -131,7 +127,7 @@ func (c *Cursor) compactLimbs(dst *[Limbs]uint64) error {
 			return c.fail(ErrUnsupported, "limbs are not below the field modulus")
 		}
 		*dst = limbs
-	case length > maxTrimmed, length == 0, length == 1 && body[0] < info1Byte, body[0] == 0:
+	case length > felt.MaxTrimmedCBORBytes, length == 0, length == 1 && body[0] < info1Byte, body[0] == 0:
 		return c.rejectTrimmed(length, body)
 	default:
 		setTrimmed(dst, body)

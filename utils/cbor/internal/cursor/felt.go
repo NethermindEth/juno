@@ -3,13 +3,15 @@ package cursor
 import (
 	"encoding/binary"
 	"unsafe"
+
+"github.com/NethermindEth/juno/core/felt"
 )
 
 // Limbs is the number of limbs in a felt, each a 64-bit value. feltHead is the head of its array,
 // and feltLen the length of the uint64 form Juno writes, which is the array head and four limbs,
 // each an eight-byte integer with its own head byte.
 const (
-	Limbs    = 4
+	Limbs    = felt.Limbs
 	feltHead = majorArray | Limbs
 	feltLen  = 1 + Limbs*(1+8)
 )

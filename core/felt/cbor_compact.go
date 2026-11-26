@@ -25,7 +25,7 @@ func appendCBOR(data []byte, value *fp.Element) []byte {
 	}
 
 	length := trimmedLength(&limbs)
-	if length > maxCanonicalByteLen {
+	if length > MaxTrimmedCBORBytes {
 		montgomery := bigEndianBytes((*[Limbs]uint64)(value))
 		data = append(data, cborByteStringMajor|cborUint8AdditionalInfo, feltByteLen)
 		return append(data, montgomery[:]...)

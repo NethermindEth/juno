@@ -68,8 +68,8 @@ const (
 	// Header + Limbs * maxCBORUintLen
 	maxCBORLegacyFeltLen = 1 + Limbs*maxCBORUintLen
 
-	// maxCanonicalByteLen is the longest canonical byte string; longer values use Montgomery form.
-	maxCanonicalByteLen = feltByteLen - 2
+	// MaxTrimmedCBORBytes is the maximum trimmed payload length. Larger values use the full Montgomery form.
+	MaxTrimmedCBORBytes = feltByteLen - 2
 	// A compact value below 24 is a single header byte
 	minCBORFeltLen = 1
 )
@@ -204,7 +204,7 @@ func decodeByteStringBody(body []byte, value *fp.Element) error {
 		}
 		*value = fp.Element(montgomery)
 		return nil
-	case length > maxCanonicalByteLen:
+	case length > MaxTrimmedCBORBytes:
 		return errFeltReservedLength
 	case length == 0 || (length == 1 && body[0] < cborUint8AdditionalInfo):
 		return errFeltSmallBytes
