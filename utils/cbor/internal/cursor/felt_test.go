@@ -78,27 +78,148 @@ func TestLimbsRejects(t *testing.T) {
 
 func TestLimbSlice(t *testing.T) {
 	type felt [cursor.Limbs]uint64
-	felts, err := func() ([]felt, error) {
-		c := cursor.NewCursor([]byte{0x82, 0x84, 0x01, 0x02, 0x03, 0x04, 0x84, 0x05, 0x06, 0x07, 0x08})
-		return cursor.LimbSlice[felt](&c)
-	}()
-	require.NoError(t, err)
-	require.Equal(t, []felt{{1, 2, 3, 4}, {5, 6, 7, 8}}, felts)
 
-	c := cursor.NewCursor([]byte{0xf6})
-	felts, err = cursor.LimbSlice[felt](&c)
-	require.NoError(t, err)
-	require.Nil(t, felts, "null is a nil slice")
+	t.Run("reads an array of felts", func(t *testing.T) {
+		c := cursor.NewCursor([]byte{
+			0x82,                         // array of 2
+			0x84, 0x01, 0x02, 0x03, 0x04, // [1, 2, 3, 4]
+			0x84, 0x05, 0x06, 0x07, 0x08, // [5, 6, 7, 8]
+		})
 
-	c = cursor.NewCursor([]byte{0x80})
-	felts, err = cursor.LimbSlice[felt](&c)
-	require.NoError(t, err)
-	require.NotNil(t, felts)
-	require.Empty(t, felts)
+		felts, err := cursor.LimbSlice[felt](&c)
+		require.NoError(t, err)
+		require.Equal(t, []felt{{1, 2, 3, 4}, {5, 6, 7, 8}}, felts)
+	})
 
-	// A count the input cannot hold is refused before anything is allocated.
-	c = cursor.NewCursor([]byte{0x9a, 0xff, 0xff, 0xff, 0xff, 0x84, 0x01, 0x02, 0x03, 0x04})
-	_, err = cursor.LimbSlice[felt](&c)
-	require.ErrorIs(t, err, cursor.ErrUnsupported)
-	require.Zero(t, c.Pos())
+	t.Run("null is a nil slice", func(t *testing.T) {
+		c := cursor.NewCursor([]byte{0xf6}) // null
+
+		felts, err := cursor.LimbSlice[felt](&c)
+		require.NoError(t, err)
+		require.Nil(t, felts)
+	})
+
+	t.Run("an empty array is an empty slice that is not nil", func(t *testing.T) {
+		c := cursor.NewCursor([]byte{0x80}) // an empty array
+
+		felts, err := cursor.LimbSlice[felt](&c)
+		require.NoError(t, err)
+		require.NotNil(t, felts)
+		require.Empty(t, felts)
+	})
+
+	t.Run("a count the input cannot hold is refused before anything is allocated", func(t *testing.T) {
+		c := cursor.NewCursor([]byte{
+			0x9a, 0xff, 0xff, 0xff, 0xff, // array of 2^32-1, the count in four bytes
+			0x84, 0x01, 0x02, 0x03, 0x04, // a single felt
+		})
+
+		_, err := cursor.LimbSlice[felt](&c)
+		require.ErrorIs(t, err, cursor.ErrUnsupported)
+		require.Zero(t, c.Pos())
+	})
+}
+
+func TestLimbSliceRejectsAnElementThatIsNotAFelt(t *testing.T) {
+	type felt [cursor.Limbs]uint64
+	c := cursor.NewCursor([]byte{
+		0x82,                         // array of 2
+		0x84, 0x01, 0x02, 0x03, 0x04, // [1, 2, 3, 4]
+		0x01,                   // the integer 1, not a felt
+		0xf6, 0xf6, 0xf6, 0xf6, // nulls, so that the count is believed
+	})
+
+	_, err := cursor.LimbSlice[felt](&c)
+	require.ErrorIs(t, err, cursor.ErrType)
+	require.Zero(t, c.Pos(), "nothing is consumed on error")
+}
+
+func TestFelt(t *testing.T) {
+	type felt [cursor.Limbs]uint64
+
+	t.Run("reads into a type with a felt's layout", func(t *testing.T) {
+		c := cursor.NewCursor([]byte{0x84, 0x01, 0x02, 0x03, 0x04, 0xf6})
+		var got felt
+
+		require.NoError(t, cursor.Felt(&c, &got))
+		require.Equal(t, felt{1, 2, 3, 4}, got)
+		require.Equal(t, []byte{0xf6}, c.Remaining())
+	})
+}
+
+// A felt is an array, so reading one takes a nesting level, as does the slice around a slice of
+// them. The levels are free again when the read is over.
+func TestFeltNesting(t *testing.T) {
+	type felt [cursor.Limbs]uint64
+	limit := nestingLimit(t)
+	data := func(open int, item ...byte) []byte {
+		return append(nested(open), item...)
+	}
+	// A felt in each form the reader has a path for.
+	forms := map[string][]byte{
+		"short limbs": {0x84, 0x01, 0x02, 0x03, 0x04},
+		"wide limbs": {
+			0x84,
+			0x1b, 0, 0, 0, 0, 0, 0, 0, 1,
+			0x1b, 0, 0, 0, 0, 0, 0, 0, 2,
+			0x1b, 0, 0, 0, 0, 0, 0, 0, 3,
+			0x1b, 0, 0, 0, 0, 0, 0, 0, 4,
+		},
+		"a longer array": {0x85, 0x01, 0x02, 0x03, 0x04, 0x05},
+	}
+
+	for name, item := range forms {
+		t.Run("a felt, "+name, func(t *testing.T) {
+			c := cursor.NewCursor(data(limit-1, item...))
+			openLevels(t, &c, limit-1)
+			var got felt
+			require.NoError(t, cursor.Felt(&c, &got), "one level is left")
+			require.Zero(t, c.Len())
+
+			c = cursor.NewCursor(data(limit, item...))
+			openLevels(t, &c, limit)
+			pos := c.Pos()
+			got = felt{9, 9, 9, 9}
+			require.ErrorIs(t, cursor.Felt(&c, &got), cursor.ErrDepth, "no level is left")
+			require.Equal(t, pos, c.Pos())
+			require.Equal(t, felt{9, 9, 9, 9}, got)
+		})
+	}
+
+	slice := func(felts ...[]byte) []byte {
+		out := []byte{0x80 | byte(len(felts))}
+		for _, felt := range felts {
+			out = append(out, felt...)
+		}
+		return out
+	}
+
+	for name, item := range forms {
+		t.Run("a slice of felts, "+name, func(t *testing.T) {
+			one := slice(item)
+
+			c := cursor.NewCursor(data(limit-2, one...))
+			openLevels(t, &c, limit-2)
+			got, err := cursor.LimbSlice[felt](&c)
+			require.NoError(t, err, "a level for the slice and one for its felts are left")
+			require.Len(t, got, 1)
+			require.Zero(t, c.Len())
+
+			c = cursor.NewCursor(data(limit-1, one...))
+			openLevels(t, &c, limit-1)
+			pos := c.Pos()
+			_, err = cursor.LimbSlice[felt](&c)
+			require.ErrorIs(t, err, cursor.ErrDepth, "only a level for the slice is left")
+			require.Equal(t, pos, c.Pos())
+		})
+	}
+
+	t.Run("an empty slice needs only a level of its own", func(t *testing.T) {
+		c := cursor.NewCursor(data(limit-1, 0x80))
+		openLevels(t, &c, limit-1)
+
+		got, err := cursor.LimbSlice[felt](&c)
+		require.NoError(t, err)
+		require.Empty(t, got)
+	})
 }
