@@ -114,6 +114,7 @@ const (
 	dbCompactionConcurrencyF            = "db-compaction-concurrency"
 	dbMemtableSizeF                     = "db-memtable-size"
 	dbMemtableCountF                    = "db-memtable-count"
+	dbFastCBORReadsF                    = "db-fast-cbor-reads"
 	dbCompressionF                      = "db-compression"
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	rpcMaxConcurrentRequestsF           = "rpc-max-concurrent-requests"
@@ -193,6 +194,7 @@ const (
 	defaultDBCompactionConcurrency            = ""
 	defaultDBMemtableSize                     = 256
 	defaultDBMemtableCount                    = 2
+	defaultDBFastCBORReads                    = false
 	defaultDBCompression                      = "zstd"
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultRPCMaxConcurrentRequests           = 1024
@@ -305,7 +307,8 @@ const (
 	dbMemtableSizeUsage  = "Determines the amount of memory (in MBs) allocated for database memtables."
 	dbMemtableCountUsage = "Determines the number of memtables the database can " +
 		"queue before stalling writes."
-	dbCompressionUsage = "Database compression profile. Options: zstd, snappy, minlz. " +
+	dbFastCBORReadsUsage = "Use the experimental fastcbor decoder for selected database reads."
+	dbCompressionUsage   = "Database compression profile. Options: zstd, snappy, minlz. " +
 		"Use zstd for low storage."
 	rpcRequestTimeoutUsage        = "Maximum time for an RPC request to complete."
 	rpcMaxConcurrentRequestsUsage = "Maximum concurrent RPC requests, over HTTP and websocket " +
@@ -716,9 +719,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(dbMemtableSizeF, defaultDBMemtableSize, dbMemtableSizeUsage)
 	junoCmd.Flags().Uint(dbMemtableCountF, defaultDBMemtableCount, dbMemtableCountUsage)
 	junoCmd.Flags().String(dbCompressionF, defaultDBCompression, dbCompressionUsage)
+	junoCmd.Flags().Bool(dbFastCBORReadsF, defaultDBFastCBORReads, dbFastCBORReadsUsage)
 	setCategory(junoCmd, catDatabase,
 		dbPathF, dbCacheSizeF, dbMaxHandlesF,
-		dbCompactionConcurrencyF, dbMemtableSizeF, dbMemtableCountF, dbCompressionF,
+		dbCompactionConcurrencyF, dbMemtableSizeF, dbMemtableCountF, dbCompressionF, dbFastCBORReadsF,
 	)
 
 	// --- Transaction Cache ---

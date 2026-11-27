@@ -32,8 +32,25 @@ type unreadable struct {
 
 func TestUnmarshalFast(t *testing.T) {
 	reports := new(warnings)
-	cbor.SetFastLogger(reports)
-	t.Cleanup(func() { cbor.SetFastLogger(new(warnings)) })
+	cbor.ConfigureFastReads(false, reports)
+
+	t.Run("disabled reads use fxamacker directly", func(t *testing.T) {
+		want := unreadable{N: 3, V: "a"}
+		data := marshal(t, want)
+		var got unreadable
+		require.NoError(t, cbor.UnmarshalFast(data, &got))
+		require.Equal(t, want, got)
+
+		var first unreadable
+		rest, err := cbor.UnmarshalFirstFast(append(data, 0x07), &first)
+		require.NoError(t, err)
+		require.Equal(t, want, first)
+		require.Equal(t, []byte{0x07}, rest)
+		require.Zero(t, reports.n.Load())
+	})
+
+	cbor.ConfigureFastReads(true, reports)
+	t.Cleanup(func() { cbor.ConfigureFastReads(false, nil) })
 
 	t.Run("a value fastcbor reads is not reported", func(t *testing.T) {
 		data := marshal(t, plainRecord{A: 1})
@@ -61,6 +78,10 @@ func TestUnmarshalFast(t *testing.T) {
 }
 
 func TestUnmarshalFirstFast(t *testing.T) {
+	reports := new(warnings)
+	cbor.ConfigureFastReads(true, reports)
+	t.Cleanup(func() { cbor.ConfigureFastReads(false, nil) })
+
 	var got plainRecord
 	rest, err := cbor.UnmarshalFirstFast(append(marshal(t, plainRecord{A: 5}), 0x07), &got)
 	require.NoError(t, err)
@@ -71,5 +92,6 @@ func TestUnmarshalFirstFast(t *testing.T) {
 	rest, err = cbor.UnmarshalFirstFast(append(marshal(t, unreadable{N: 1, V: "x"}), 0x07), &other)
 	require.NoError(t, err)
 	require.Equal(t, unreadable{N: 1, V: "x"}, other)
+	require.Equal(t, int64(1), reports.n.Load())
 	require.Equal(t, []byte{0x07}, rest)
 }

@@ -144,6 +144,7 @@ func TestConfigPrecedence(t *testing.T) {
 		DBMaxHandles:                       defaultMaxHandles,
 		DBMemtableSize:                     defaultDBMemtableSize,
 		DBMemtableCount:                    defaultDBMemtableCount,
+		DBFastCBORReads:                    true,
 		DBCompression:                      defaultDBCompression,
 		RPCCallMaxSteps:                    defaultCallMaxSteps,
 		RPCCallMaxGas:                      defaultCallMaxGas,
@@ -249,7 +250,7 @@ func TestConfigPrecedence(t *testing.T) {
 		"custom network all flags": {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
-				"--db-path", "/home/.juno", "--pprof", "--db-cache-size", "1024",
+				"--db-path", "/home/.juno", "--pprof", "--db-fast-cbor-reads", "--db-cache-size", "1024",
 				"--cn-name", "custom", "--cn-feeder-url", "http://awesome.feeder", "--cn-gateway-url", "http://awesome.gateway",
 				"--cn-l1-chain-id", "0x1", "--cn-l2-chain-id", "SN_AWESOME",
 				"--cn-unverifiable-range", "0,10",
@@ -262,6 +263,7 @@ func TestConfigPrecedence(t *testing.T) {
 			cfgFileContents: `log-level: debug
 http-host: 0.0.0.0
 http-port: 4576
+db-fast-cbor-reads: true
 db-path: /home/.juno
 pprof: true
 cn-name: custom

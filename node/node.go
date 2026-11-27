@@ -43,6 +43,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/sync/rpcsource"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -124,6 +125,7 @@ type Config struct {
 	DBCompactionConcurrency string `mapstructure:"db-compaction-concurrency"`
 	DBMemtableSize          uint   `mapstructure:"db-memtable-size"`
 	DBMemtableCount         uint   `mapstructure:"db-memtable-count"`
+	DBFastCBORReads         bool   `mapstructure:"db-fast-cbor-reads"`
 	DBCompression           string `mapstructure:"db-compression"`
 
 	GatewayAPIKey   string `mapstructure:"gw-api-key"`
@@ -293,6 +295,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
 	}
+
+	cbor.ConfigureFastReads(cfg.DBFastCBORReads, logger)
 
 	ua := fmt.Sprintf("Juno/%s Starknet Client", version)
 
