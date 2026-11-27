@@ -2,6 +2,7 @@ package jsonrpc
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
@@ -20,26 +21,96 @@ const (
 
 // windowBuffer keeps the last maxWindowSize bytes read
 type windowBuffer struct {
-	window        []byte
-	consumedBytes int
-	newlinesSeen  int
+	window          []byte
+	consumedBytes   int
+	newlinesSeen    int
+	linePrefixRunes int
 }
 
 func (c *windowBuffer) Write(p []byte) (int, error) {
 	c.consumedBytes += len(p)
 	c.newlinesSeen += bytes.Count(p, []byte{'\n'})
 
-	if len(p) >= maxWindowSize {
-		c.window = append(c.window[:0], p[len(p)-maxWindowSize:]...)
+	if len(p) >= maxWindowSize+utf8.UTFMax {
+		start := nextRuneBoundary(p, len(p)-maxWindowSize)
+		c.advanceLinePrefix(c.window, p[:start])
+		c.window = append(c.window[:0], p[start:]...)
 		return len(p), nil
 	}
 
-	if overflow := len(c.window) + len(p) - maxWindowSize; overflow > 0 {
-		c.window = c.window[:copy(c.window, c.window[overflow:])]
-	}
+	// Join short reads before trimming: a rune may span the two buffers.
 	c.window = append(c.window, p...)
+	if overflow := len(c.window) - maxWindowSize; overflow > 0 {
+		start := nextRuneBoundary(c.window, overflow)
+		c.advanceLinePrefix(nil, c.window[:start])
+		c.window = c.window[:copy(c.window, c.window[start:])]
+	}
 
 	return len(p), nil
+}
+
+func nextRuneBoundary(p []byte, offset int) int {
+	// Decode from before the cut so invalid continuation bytes count as runes,
+	// while a valid rune crossing the cut is discarded in full.
+	start := max(0, offset-utf8.UTFMax+1)
+	for start < offset {
+		_, size := utf8.DecodeRune(p[start:])
+		start += size
+	}
+	return start
+}
+
+func (c *windowBuffer) advanceLinePrefix(discardedWindow, discardedInput []byte) {
+	if c.newlinesSeen > 0 {
+		if lastNewline := bytes.LastIndexByte(discardedInput, '\n'); lastNewline >= 0 {
+			c.linePrefixRunes = countRunes(discardedInput[lastNewline+1:])
+			return
+		}
+		if lastNewline := bytes.LastIndexByte(discardedWindow, '\n'); lastNewline >= 0 {
+			c.linePrefixRunes = countJoinedRunes(discardedWindow[lastNewline+1:], discardedInput)
+			return
+		}
+	}
+	c.linePrefixRunes += countJoinedRunes(discardedWindow, discardedInput)
+}
+
+func countJoinedRunes(window, input []byte) int {
+	count := countRunes(window) + countRunes(input)
+	if len(window) == 0 || len(input) == 0 {
+		return count
+	}
+
+	start := len(window) - 1
+	for start > 0 && len(window)-start < utf8.UTFMax && !utf8.RuneStart(window[start]) {
+		start--
+	}
+	tail := window[start:]
+	if !utf8.FullRune(tail) {
+		var joined [utf8.UTFMax]byte
+		n := copy(joined[:], tail)
+		n += copy(joined[n:], input)
+		if _, size := utf8.DecodeRune(joined[:n]); size > len(tail) {
+			// Each fragment counted as invalid bytes on its own; together they
+			// form one valid rune.
+			count -= size - 1
+		}
+	}
+	return count
+}
+
+func countRunes(p []byte) int {
+	const highBits = uint64(0x8080808080808080)
+	count := 0
+	for len(p) >= 32 {
+		word := binary.LittleEndian.Uint64(p) | binary.LittleEndian.Uint64(p[8:]) |
+			binary.LittleEndian.Uint64(p[16:]) | binary.LittleEndian.Uint64(p[24:])
+		if word&highBits != 0 {
+			break
+		}
+		count += 32
+		p = p[32:]
+	}
+	return count + utf8.RuneCount(p)
 }
 
 func errorOffset(inputLength int, err error) (offset int, ok bool) {
@@ -72,11 +143,15 @@ func pastComma(input []byte, offset int) int {
 	return len(input) - len(rest)
 }
 
-func lineAndColumn(c *windowBuffer, markerPos int) (line, col int) {
+func lineAndColumn(c *windowBuffer, markerPos int) (line, relativeCol, absoluteCol int) {
 	line = c.newlinesSeen - bytes.Count(c.window[markerPos:], []byte{'\n'}) + 1
 	lineStart := bytes.LastIndexByte(c.window[:markerPos], '\n') + 1
-	col = utf8.RuneCount(c.window[lineStart:markerPos]) + 1
-	return line, col
+	relativeCol = utf8.RuneCount(c.window[lineStart:markerPos]) + 1
+	absoluteCol = relativeCol
+	if lineStart == 0 {
+		absoluteCol += c.linePrefixRunes
+	}
+	return line, relativeCol, absoluteCol
 }
 
 // expectedToken maps the decoder reason, which uses parser jargon, to a
@@ -247,8 +322,10 @@ func prettyParseError(c *windowBuffer, err error) string {
 	if errors.As(err, new(*jsontext.SyntacticError)) {
 		markerPos = pastComma(c.window, markerPos)
 	}
-	line, col := lineAndColumn(c, markerPos)
-	msg := fmt.Sprintf("%s [line %d, position %d]", describeError(c.window, markerPos, err), line, col)
+	line, relativeCol, absoluteCol := lineAndColumn(c, markerPos)
+	msg := fmt.Sprintf(
+		"%s [line %d, position %d]", describeError(c.window, markerPos, err), line, absoluteCol,
+	)
 
-	return drawMarker(c.window, windowStart, markerPos, col, msg)
+	return drawMarker(c.window, windowStart, markerPos, relativeCol, msg)
 }
