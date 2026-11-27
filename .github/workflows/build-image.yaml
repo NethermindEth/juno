@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-image-build
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   DOCKER_REGISTRY: nethermind.jfrog.io
@@ -64,4 +64,4 @@ jobs:
           platforms: linux/amd64
           tags: ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ steps.set_tag.outputs.DOCKER_IMAGE_TAG }}${{ github.ref == 'refs/heads/main' && format(',{0}/{1}/juno:main', env.DOCKER_REGISTRY, env.REPO_DEV) || '' }}
           cache-from: type=gha,scope=${{ github.workflow }}
-          cache-to: type=gha,mode=max,scope=${{ github.workflow }}
+          cache-to: ${{ github.ref == 'refs/heads/main' && format('type=gha,mode=max,scope={0}', github.workflow) || '' }}

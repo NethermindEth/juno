@@ -72,7 +72,7 @@ jobs:
 
       - name: Cache Rust dependencies
         if: ${{ !inputs.no-cache }}
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           key: rust-toolchain-${{ matrix.os }}
           workspaces: vm/rust

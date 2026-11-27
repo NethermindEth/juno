@@ -53,3 +53,62 @@ jobs:
       TEST_ACCOUNT_PRIVATE_KEY_3: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY_3 }}
       TEST_ACCOUNT_PUBLIC_KEY_3: ${{ secrets.TEST_ACCOUNT_PUBLIC_KEY_3 }}
       AUTH_TOKEN: ${{ secrets.DEV_AUTH_TOKEN }}
+
+  image_scan:
+    # Scan the image that "build" pushed, so the PR does not build it a second time.
+    needs: [build]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write
+      actions: read
+    env:
+      DOCKER_REGISTRY: nethermind.jfrog.io
+      REPO_DEV: nubia-oci-local-dev
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install JFrog CLI
+        id: jfrog
+        uses: jfrog/setup-jfrog-cli@1e584506871998c267b7c100c02628a5b9c81db6 # v5.3.0
+        env:
+          JF_URL: https://${{ env.DOCKER_REGISTRY }}
+        with:
+          oidc-provider-name: github-nethermindeth
+
+      - name: Login to Registry with OIDC
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ steps.jfrog.outputs.oidc-user }}
+          password: ${{ steps.jfrog.outputs.oidc-token }}
+
+      - name: Pull docker image
+        env:
+          DOCKER_TAG: ${{ needs.build.outputs.docker_image_tag }}
+        run: |
+          docker pull "${DOCKER_REGISTRY}/${REPO_DEV}/juno:${DOCKER_TAG}"
+          # Same image name as in trivy.yml, so alert locations match the ones on main.
+          docker tag "${DOCKER_REGISTRY}/${REPO_DEV}/juno:${DOCKER_TAG}" "juno:${{ github.sha }}"
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 #v0.36.0
+        with:
+          image-ref: 'juno:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+        env:
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 #v4.39.3
+        with:
+          # Scan on main uploads from trivy.yml with this category. The PR result must match it so GitHub can compare.
+          category: .github/workflows/trivy.yml:build
+          sarif_file: 'trivy-results.sarif'
