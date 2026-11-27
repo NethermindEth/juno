@@ -23,8 +23,7 @@ func wideFelt(buf []byte) bool {
 		buf[1] == limbHead && buf[10] == limbHead && buf[19] == limbHead && buf[28] == limbHead
 }
 
-// Limbs reads a felt, an array of four unsigned integers that are the limbs of its Montgomery
-// form. dst is written only on success.
+// Limbs reads a legacy array of Montgomery limbs or a compact felt. dst is written only on success.
 func (c *Cursor) Limbs(dst *[Limbs]uint64) error {
 	// A felt is an array, a level of its own. The uint64 form and shortLimbs below do not count it.
 	if c.depth >= maxNestedLevels {
@@ -83,8 +82,25 @@ func shortLimbs(buf []byte, dst *[Limbs]uint64) int {
 	return n
 }
 
+// isCompact reports whether buf starts with a uint or a byte string, the heads of a compact felt.
+func isCompact(buf []byte) bool {
+	if len(buf) == 0 {
+		return false
+	}
+	major := buf[0] & majorMask
+	return major == MajorUint || major == majorBytes
+}
+
 // limbsSlow reads a felt whose limbs are not all eight bytes wide.
 func (c *Cursor) limbsSlow(dst *[Limbs]uint64) error {
+	if isCompact(c.buf[c.pos:]) {
+		return c.compactLimbs(dst)
+	}
+	if c.valid() {
+		if head := c.buf[c.pos]; head&majorMask != majorArray {
+			return c.mismatch("a felt", head)
+		}
+	}
 	// A felt is an array, so the items past the fourth, which Skip passes, sit one level deeper. They
 	// are read with a copy, which c follows only if the read succeeds.
 	inner := *c
@@ -124,20 +140,15 @@ func LimbSlice[F ~[Limbs]uint64](c *Cursor) ([]F, error) {
 	if err != nil {
 		return nil, err
 	}
-	if left := inner.Len(); count > uint64(left)/(1+Limbs) {
-		// A felt Juno writes takes at least five bytes, so a larger count is damaged or uses a shorter
-		// form, and is not worth an allocation the input cannot back.
+	if left := inner.Len(); count > uint64(left) {
+		// A compact felt takes at least one byte, so the input must back the allocation.
 		return nil, c.fail(
-			ErrUnsupported, "count %d does not fit the %d bytes left at five bytes per felt", count, left,
+			ErrUnsupported, "count %d does not fit the %d bytes left at one byte per felt", count, left,
 		)
 	}
-	// The slice is a nesting level, and each felt in it another.
+	// The slice is a nesting level. Legacy felt arrays add another.
 	if err := inner.enter(start); err != nil {
 		return nil, err
-	}
-	if count > 0 && inner.depth >= maxNestedLevels {
-		// The felts in the slice are one level deeper, which readLimbs does not count.
-		return nil, errDepth(start)
 	}
 	out := make([]F, count)
 	// F has the layout of [Limbs]uint64, so the slice can be read as one.
@@ -153,7 +164,7 @@ func LimbSlice[F ~[Limbs]uint64](c *Cursor) ([]F, error) {
 func (c *Cursor) readLimbs(felts [][Limbs]uint64) error {
 	buf := c.buf[c.pos:]
 	for i := range felts {
-		if wideFelt(buf) {
+		if c.depth < maxNestedLevels && wideFelt(buf) {
 			felt := &felts[i]
 			felt[0] = binary.BigEndian.Uint64(buf[2:])
 			felt[1] = binary.BigEndian.Uint64(buf[11:])
@@ -163,7 +174,14 @@ func (c *Cursor) readLimbs(felts [][Limbs]uint64) error {
 			continue
 		}
 		c.pos = len(c.buf) - len(buf)
-		if err := c.Limbs(&felts[i]); err != nil {
+		var err error
+		if isCompact(buf) {
+			// Limbs would hand a compact felt to the same reader.
+			err = c.compactLimbs(&felts[i])
+		} else {
+			err = c.Limbs(&felts[i])
+		}
+		if err != nil {
 			return err
 		}
 		buf = c.buf[c.pos:]

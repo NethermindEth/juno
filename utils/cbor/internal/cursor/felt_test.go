@@ -58,7 +58,7 @@ func TestLimbsRejects(t *testing.T) {
 		data []byte
 		err  error
 	}{
-		{"not an array", []byte{0x01}, cursor.ErrType},
+		{"not a felt", []byte{0x61, 'a'}, cursor.ErrType},
 		{"a negative word", []byte{0x84, 0x01, 0x20, 0x03, 0x04}, cursor.ErrType},
 		{"a word of another type", []byte{0x84, 0x01, 0x61, 'a', 0x03, 0x04}, cursor.ErrType},
 		{"a tag around a word", []byte{0x84, 0x01, 0xc4, 0x02, 0x03, 0x04}, cursor.ErrUnsupported},

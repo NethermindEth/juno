@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
 	"github.com/NethermindEth/juno/utils/cbor/internal/cursor"
 	"github.com/stretchr/testify/require"
@@ -264,6 +265,13 @@ func feltSeeds() [][]byte {
 		0x1b, 0, 0, 0, 0, 0, 0, 0, 9, 0x1b, 0x07, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf1, 0x30,
 	}
 	return [][]byte{
+		{0x00},
+		{0x17},
+		{0x41, 0x18},
+		{0x42, 0x01, 0x00},
+		{0x83, 0x00, 0x17, 0x41, 0x18},
+		append([]byte{0x58, 30, 1}, make([]byte, 29)...),
+		append([]byte{0x58, 32, 1}, make([]byte, 31)...),
 		full,
 		{0x84, 0x00, 0x18, 0x18, 0x19, 0x01, 0x00, 0x1a, 0, 1, 0, 0},
 		{0x80},
@@ -279,7 +287,7 @@ func feltSeeds() [][]byte {
 }
 
 // FuzzFeltsMatchFxamacker checks the felt readers against fxamacker decoding into the same
-// shapes, a [4]uint64 and a slice of them. A reader that succeeds must agree with fxamacker on
+// shapes, a felt and a slice of them. A reader that succeeds must agree with fxamacker on
 // the value and the remainder. Where fxamacker succeeds, a reader may only fail by being
 // stricter about types (ErrType) or by not reading a form (ErrUnsupported).
 func FuzzFeltsMatchFxamacker(f *testing.F) {
@@ -291,10 +299,10 @@ func FuzzFeltsMatchFxamacker(f *testing.F) {
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
 		t.Run("limbs", func(t *testing.T) {
-			var want, got [cursor.Limbs]uint64
+			var want, got felt.Felt
 			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
 			c := cursor.NewCursor(data)
-			err := c.Limbs(&got)
+			err := cursor.Felt(&c, &got)
 			if err != nil {
 				require.Zero(t, c.Pos(), "a failed read moved the Cursor")
 				require.True(t, fxErr != nil || allowed(err), "fxamacker accepts what Limbs rejects: %v", err)
@@ -305,10 +313,10 @@ func FuzzFeltsMatchFxamacker(f *testing.F) {
 			require.Equal(t, rest, c.Remaining())
 		})
 		t.Run("slice", func(t *testing.T) {
-			var want [][cursor.Limbs]uint64
+			var want []felt.Felt
 			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
 			c := cursor.NewCursor(data)
-			got, err := cursor.LimbSlice[[cursor.Limbs]uint64](&c)
+			got, err := cursor.LimbSlice[felt.Felt](&c)
 			if err != nil {
 				require.Zero(t, c.Pos(), "a failed read moved the Cursor")
 				require.True(t, fxErr != nil || allowed(err),
