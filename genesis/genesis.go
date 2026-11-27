@@ -341,12 +341,17 @@ func executeTransactions(
 				FeeDAMode:             core.DataAvailabilityMode(*txn.FeeDAMode),
 			}
 		case rpc.TxnDeployAccount:
+			contractAddress := core.ContractAddress(
+				new(felt.Zero[felt.Address]()),
+				txn.ClassHash,
+				txn.ContractAddressSalt,
+				*txn.ConstructorCallData,
+			)
 			coreTxns[i] = &core.DeployAccountTransaction{
 				DeployTransaction: core.DeployTransaction{
 					TransactionHash:     txn.Hash,
 					ContractAddressSalt: txn.ContractAddressSalt,
-					// bug: TxnDeployAccount does not contain SenderAddress field, so this is nil
-					ContractAddress:     txn.SenderAddress,
+					ContractAddress:     &contractAddress,
 					ClassHash:           txn.ClassHash,
 					ConstructorCallData: *txn.ConstructorCallData,
 					Version:             (*core.TransactionVersion)(txn.Version),

@@ -8,11 +8,13 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/genesis"
+	"github.com/NethermindEth/juno/mocks"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestGenesisStateDiff(t *testing.T) {
@@ -104,6 +106,59 @@ func TestGenesisStateDiff(t *testing.T) {
 			"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
 		)
 		require.Equal(t, new(felt.One[felt.Felt]()), stateDiff.Nonces[*invokeSender])
+	})
+
+	t.Run("deploy account txn gets its contract address", func(t *testing.T) {
+		classHash := felt.NewUnsafeFromString[felt.ClassHash](
+			"0x402d6191ebe3ea289789edd160f3afa6600a389f1aad0ab7709b830653c6f08",
+		)
+		salt := felt.NewUnsafeFromString[felt.Felt]("0x123")
+		calldata := felt.Slice[felt.Felt]{*felt.NewFromUint64[felt.Felt](7)}
+		genesisConfig := genesis.GenesisConfig{
+			Txns: []rpcv10.Transaction{{
+				Hash:                felt.NewFromUint64[felt.TransactionHash](1),
+				Type:                rpcv10.TxnDeployAccount,
+				Version:             felt.NewFromUint64[felt.Felt](1),
+				Nonce:               new(felt.Zero[felt.Felt]()),
+				MaxFee:              new(felt.Zero[felt.Felt]()),
+				ClassHash:           classHash,
+				ContractAddressSalt: salt,
+				ConstructorCallData: &calldata,
+				Signature:           &felt.Slice[felt.Felt]{},
+			}},
+		}
+		want := core.ContractAddress(new(felt.Zero[felt.Address]()), classHash, salt, calldata)
+
+		mockVM := mocks.NewMockVM(gomock.NewController(t))
+		mockVM.EXPECT().BuildBlock(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+		).DoAndReturn(func(
+			txns []core.Transaction,
+			_ []core.ClassDefinition,
+			_ []*felt.Felt,
+			_ *vm.BlockInfo,
+			_ core.StateReader,
+			_ vm.BuildBlockOptions,
+		) (vm.ExecutionResults, error) {
+			require.Len(t, txns, 1)
+			deployAccount, ok := txns[0].(*core.DeployAccountTransaction)
+			require.True(t, ok)
+			require.NotNil(t, deployAccount.ContractAddress)
+			require.Equal(t, want, *deployAccount.ContractAddress)
+			return vm.ExecutionResults{Traces: make([]vm.TransactionTrace, 1)}, nil
+		})
+
+		_, _, err := genesis.GenesisStateDiff(
+			t.Context(),
+			&genesisConfig,
+			mockVM,
+			network,
+			vm.DefaultMaxSteps,
+			vm.DefaultMaxGas,
+			statetestutils.UseNewState(),
+			nil,
+		)
+		require.NoError(t, err)
 	})
 }
 
