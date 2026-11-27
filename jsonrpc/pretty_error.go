@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/bits"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -32,74 +31,86 @@ func (c *windowBuffer) Write(p []byte) (int, error) {
 	c.consumedBytes += len(p)
 	c.newlinesSeen += bytes.Count(p, []byte{'\n'})
 
-	if len(p) >= maxWindowSize {
-		start := nextRuneStartAt(p, len(p)-maxWindowSize)
+	if len(p) >= maxWindowSize+utf8.UTFMax {
+		start := nextRuneBoundary(p, len(p)-maxWindowSize)
 		c.advanceLinePrefix(c.window, p[:start])
 		c.window = append(c.window[:0], p[start:]...)
 		return len(p), nil
 	}
 
-	if overflow := len(c.window) + len(p) - maxWindowSize; overflow > 0 {
-		start := nextRuneStartAt(c.window, overflow)
+	// Join short reads before trimming: a rune may span the two buffers.
+	c.window = append(c.window, p...)
+	if overflow := len(c.window) - maxWindowSize; overflow > 0 {
+		start := nextRuneBoundary(c.window, overflow)
 		c.advanceLinePrefix(nil, c.window[:start])
 		c.window = c.window[:copy(c.window, c.window[start:])]
 	}
-	c.window = append(c.window, p...)
 
 	return len(p), nil
 }
 
-func nextRuneStartAt(p []byte, offset int) int {
-	for offset < len(p) && !utf8.RuneStart(p[offset]) {
-		offset++
+func nextRuneBoundary(p []byte, offset int) int {
+	// Decode from before the cut so invalid continuation bytes count as runes,
+	// while a valid rune crossing the cut is discarded in full.
+	start := max(0, offset-utf8.UTFMax+1)
+	for start < offset {
+		_, size := utf8.DecodeRune(p[start:])
+		start += size
 	}
-	return offset
+	return start
 }
 
-func (c *windowBuffer) advanceLinePrefix(first, second []byte) {
+func (c *windowBuffer) advanceLinePrefix(discardedWindow, discardedInput []byte) {
 	if c.newlinesSeen > 0 {
-		if lastNewline := bytes.LastIndexByte(second, '\n'); lastNewline >= 0 {
-			c.linePrefixRunes = countRuneStarts(second[lastNewline+1:])
+		if lastNewline := bytes.LastIndexByte(discardedInput, '\n'); lastNewline >= 0 {
+			c.linePrefixRunes = countRunes(discardedInput[lastNewline+1:])
 			return
 		}
-		if lastNewline := bytes.LastIndexByte(first, '\n'); lastNewline >= 0 {
-			c.linePrefixRunes = countRuneStarts(first[lastNewline+1:]) + countRuneStarts(second)
+		if lastNewline := bytes.LastIndexByte(discardedWindow, '\n'); lastNewline >= 0 {
+			c.linePrefixRunes = countJoinedRunes(discardedWindow[lastNewline+1:], discardedInput)
 			return
 		}
 	}
-	c.linePrefixRunes += countRuneStarts(first) + countRuneStarts(second)
+	c.linePrefixRunes += countJoinedRunes(discardedWindow, discardedInput)
 }
 
-func countRuneStarts(p []byte) int {
-	count := 0
-	for len(p) >= 32 {
-		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p))
-		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p[8:]))
-		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p[16:]))
-		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p[24:]))
-		p = p[32:]
+func countJoinedRunes(window, input []byte) int {
+	count := countRunes(window) + countRunes(input)
+	if len(window) == 0 || len(input) == 0 {
+		return count
 	}
-	for len(p) >= 8 {
-		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p))
-		p = p[8:]
+
+	start := len(window) - 1
+	for start > 0 && len(window)-start < utf8.UTFMax && !utf8.RuneStart(window[start]) {
+		start--
 	}
-	for _, b := range p {
-		if utf8.RuneStart(b) {
-			count++
+	tail := window[start:]
+	if !utf8.FullRune(tail) {
+		var joined [utf8.UTFMax]byte
+		n := copy(joined[:], tail)
+		n += copy(joined[n:], input)
+		if _, size := utf8.DecodeRune(joined[:n]); size > len(tail) {
+			// Each fragment counted as invalid bytes on its own; together they
+			// form one valid rune.
+			count -= size - 1
 		}
 	}
 	return count
 }
 
-func countRuneStartsInWord(word uint64) int {
+func countRunes(p []byte) int {
 	const highBits = uint64(0x8080808080808080)
-	if word&highBits == 0 {
-		return 8
+	count := 0
+	for len(p) >= 32 {
+		word := binary.LittleEndian.Uint64(p) | binary.LittleEndian.Uint64(p[8:]) |
+			binary.LittleEndian.Uint64(p[16:]) | binary.LittleEndian.Uint64(p[24:])
+		if word&highBits != 0 {
+			break
+		}
+		count += 32
+		p = p[32:]
 	}
-	// UTF-8 continuation bytes start with 10; isolate their high bits and
-	// subtract them from the eight possible rune starts in the word.
-	continuationBits := word & ^(word << 1) & highBits
-	return 8 - bits.OnesCount64(continuationBits)
+	return count + utf8.RuneCount(p)
 }
 
 func errorOffset(inputLength int, err error) (offset int, ok bool) {
@@ -135,7 +146,7 @@ func pastComma(input []byte, offset int) int {
 func lineAndColumn(c *windowBuffer, markerPos int) (line, relativeCol, absoluteCol int) {
 	line = c.newlinesSeen - bytes.Count(c.window[markerPos:], []byte{'\n'}) + 1
 	lineStart := bytes.LastIndexByte(c.window[:markerPos], '\n') + 1
-	relativeCol = countRuneStarts(c.window[lineStart:markerPos]) + 1
+	relativeCol = utf8.RuneCount(c.window[lineStart:markerPos]) + 1
 	absoluteCol = relativeCol
 	if lineStart == 0 {
 		absoluteCol += c.linePrefixRunes
