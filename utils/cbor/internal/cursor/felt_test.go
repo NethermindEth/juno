@@ -78,35 +78,56 @@ func TestLimbsRejects(t *testing.T) {
 
 func TestLimbSlice(t *testing.T) {
 	type felt [cursor.Limbs]uint64
-	felts, err := func() ([]felt, error) {
-		c := cursor.NewCursor([]byte{0x82, 0x84, 0x01, 0x02, 0x03, 0x04, 0x84, 0x05, 0x06, 0x07, 0x08})
-		return cursor.LimbSlice[felt](&c)
-	}()
-	require.NoError(t, err)
-	require.Equal(t, []felt{{1, 2, 3, 4}, {5, 6, 7, 8}}, felts)
 
-	c := cursor.NewCursor([]byte{0xf6})
-	felts, err = cursor.LimbSlice[felt](&c)
-	require.NoError(t, err)
-	require.Nil(t, felts, "null is a nil slice")
+	t.Run("reads an array of felts", func(t *testing.T) {
+		c := cursor.NewCursor([]byte{
+			0x82,                         // array of 2
+			0x84, 0x01, 0x02, 0x03, 0x04, // [1, 2, 3, 4]
+			0x84, 0x05, 0x06, 0x07, 0x08, // [5, 6, 7, 8]
+		})
 
-	c = cursor.NewCursor([]byte{0x80})
-	felts, err = cursor.LimbSlice[felt](&c)
-	require.NoError(t, err)
-	require.NotNil(t, felts)
-	require.Empty(t, felts)
+		felts, err := cursor.LimbSlice[felt](&c)
+		require.NoError(t, err)
+		require.Equal(t, []felt{{1, 2, 3, 4}, {5, 6, 7, 8}}, felts)
+	})
 
-	// A count the input cannot hold is refused before anything is allocated.
-	c = cursor.NewCursor([]byte{0x9a, 0xff, 0xff, 0xff, 0xff, 0x84, 0x01, 0x02, 0x03, 0x04})
-	_, err = cursor.LimbSlice[felt](&c)
-	require.ErrorIs(t, err, cursor.ErrUnsupported)
-	require.Zero(t, c.Pos())
+	t.Run("null is a nil slice", func(t *testing.T) {
+		c := cursor.NewCursor([]byte{0xf6}) // null
+
+		felts, err := cursor.LimbSlice[felt](&c)
+		require.NoError(t, err)
+		require.Nil(t, felts)
+	})
+
+	t.Run("an empty array is an empty slice that is not nil", func(t *testing.T) {
+		c := cursor.NewCursor([]byte{0x80}) // an empty array
+
+		felts, err := cursor.LimbSlice[felt](&c)
+		require.NoError(t, err)
+		require.NotNil(t, felts)
+		require.Empty(t, felts)
+	})
+
+	t.Run("a count the input cannot hold is refused before anything is allocated", func(t *testing.T) {
+		c := cursor.NewCursor([]byte{
+			0x9a, 0xff, 0xff, 0xff, 0xff, // array of 2^32-1, the count in four bytes
+			0x84, 0x01, 0x02, 0x03, 0x04, // a single felt
+		})
+
+		_, err := cursor.LimbSlice[felt](&c)
+		require.ErrorIs(t, err, cursor.ErrUnsupported)
+		require.Zero(t, c.Pos())
+	})
 }
 
 func TestLimbSliceRejectsAnElementThatIsNotAFelt(t *testing.T) {
 	type felt [cursor.Limbs]uint64
-	// Enough bytes for the count to be believed.
-	c := cursor.NewCursor([]byte{0x82, 0x84, 0x01, 0x02, 0x03, 0x04, 0x01, 0xf6, 0xf6, 0xf6, 0xf6})
+	c := cursor.NewCursor([]byte{
+		0x82,                         // array of 2
+		0x84, 0x01, 0x02, 0x03, 0x04, // [1, 2, 3, 4]
+		0x01,                   // the integer 1, not a felt
+		0xf6, 0xf6, 0xf6, 0xf6, // nulls, so that the count is believed
+	})
 
 	_, err := cursor.LimbSlice[felt](&c)
 	require.ErrorIs(t, err, cursor.ErrType)

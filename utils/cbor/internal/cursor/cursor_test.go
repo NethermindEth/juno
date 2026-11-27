@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// What the readers refuse is in refusals_test.go.
+// What the readers refuse is in refusals_test.go, and the nesting helpers in helpers_test.go.
 
-func TestPeek(t *testing.T) {
-	data := []byte{0x18, 0x2a}
+func TestPeekDoesNotConsumeCursor(t *testing.T) {
+	data := []byte{0x18, 0x2a} // the integer 42, in a head and one byte
 	c := cursor.NewCursor(data)
 
 	for range 2 {
@@ -25,7 +25,10 @@ func TestPeek(t *testing.T) {
 
 func TestTag(t *testing.T) {
 	t.Run("reads the tag number and leaves the content", func(t *testing.T) {
-		c := cursor.NewCursor([]byte{0xc2, 0x41, 0x01})
+		c := cursor.NewCursor([]byte{
+			0xc2,       // tag 2
+			0x41, 0x01, // a byte string of one byte
+		})
 
 		tag, err := c.Tag()
 		require.NoError(t, err)
@@ -38,7 +41,7 @@ func TestTag(t *testing.T) {
 	})
 
 	t.Run("reads a tag number of several bytes", func(t *testing.T) {
-		c := cursor.NewCursor([]byte{0xda, 0x00, 0x01, 0x00, 0x00})
+		c := cursor.NewCursor([]byte{0xda, 0x00, 0x01, 0x00, 0x00}) // tag 65536, in a head and four bytes
 
 		tag, err := c.Tag()
 		require.NoError(t, err)
@@ -49,7 +52,11 @@ func TestTag(t *testing.T) {
 
 func TestArrayLenAndMapLen(t *testing.T) {
 	t.Run("array returns the element count", func(t *testing.T) {
-		c := cursor.NewCursor([]byte{0x82, 0x01, 0x02})
+		c := cursor.NewCursor([]byte{
+			0x82, // array of 2
+			0x01, // 1
+			0x02, // 2
+		})
 
 		n, err := c.ArrayLen()
 		require.NoError(t, err)
@@ -65,7 +72,13 @@ func TestArrayLenAndMapLen(t *testing.T) {
 	})
 
 	t.Run("map returns the pair count", func(t *testing.T) {
-		c := cursor.NewCursor([]byte{0xa2, 0x01, 0x02, 0x03, 0x04})
+		c := cursor.NewCursor([]byte{
+			0xa2, // map of 2 pairs
+			0x01, // key 1
+			0x02, // value 2
+			0x03, // key 3
+			0x04, // value 4
+		})
 
 		n, err := c.MapLen()
 		require.NoError(t, err)
@@ -74,7 +87,10 @@ func TestArrayLenAndMapLen(t *testing.T) {
 	})
 
 	t.Run("a count of several bytes larger than the input is refused", func(t *testing.T) {
-		c := cursor.NewCursor([]byte{0x9a, 0xff, 0xff, 0xff, 0xff, 0x01})
+		c := cursor.NewCursor([]byte{
+			0x9a, 0xff, 0xff, 0xff, 0xff, // array of 2^32-1, the count in four bytes
+			0x01, // a single element
+		})
 
 		_, err := c.ArrayLen()
 		require.ErrorIs(t, err, cursor.ErrTruncated)
@@ -82,70 +98,12 @@ func TestArrayLenAndMapLen(t *testing.T) {
 	})
 }
 
-func openArray(c *cursor.Cursor) error {
-	_, err := c.ArrayLen()
-	return err
-}
-
-func openMap(c *cursor.Cursor) error {
-	_, err := c.MapLen()
-	return err
-}
-
-// openUntilRefused opens one level at a time over data, using each of openers in turn, until one is
-// refused, and returns how many were opened. The refusal must be ErrDepth and consume nothing.
-func openUntilRefused(t *testing.T, data []byte, openers ...func(*cursor.Cursor) error) int {
-	t.Helper()
-	c := cursor.NewCursor(data)
-	for level := range 200 {
-		pos := c.Pos()
-		err := openers[level%len(openers)](&c)
-		if err == nil {
-			continue
-		}
-		require.ErrorIs(t, err, cursor.ErrDepth)
-		require.Equal(t, pos, c.Pos())
-		return level
-	}
-	require.FailNow(t, "nesting was never refused")
-	return 0
-}
-
-// nested is depth arrays, each holding the next, around leaf.
-func nested(depth int, leaf ...byte) []byte {
-	return append(bytes.Repeat([]byte{0x81}, depth), leaf...)
-}
-
-// openable returns how many arrays c can open one inside the next, which is the nesting limit less
-// the levels c has open. It works on a copy.
-func openable(c cursor.Cursor) int {
-	n := 0
-	for openArray(&c) == nil {
-		n++
-	}
-	return n
-}
-
-// nestingLimit returns how many levels a fresh Cursor can open.
-func nestingLimit(t *testing.T) int {
-	t.Helper()
-	limit := openUntilRefused(t, nested(200, 0x01), openArray)
-	require.Positive(t, limit)
-	return limit
-}
-
-// openLevels opens n arrays on c.
-func openLevels(t *testing.T, c *cursor.Cursor, n int) {
-	t.Helper()
-	for range n {
-		require.NoError(t, openArray(c))
-	}
-}
-
 func TestNestingLimit(t *testing.T) {
-	arrays := nested(200, 0x01)
-	maps := append(bytes.Repeat([]byte{0xa1}, 200), 0x01, 0x02) // each the key of the next
-	mixed := append(bytes.Repeat([]byte{0x81, 0xa1}, 100), 0x01, 0x02)
+	arrays := nested(deeperThanLimit, 0x01)
+	// Maps of one pair, each the key of the next, around the pair 1: 2.
+	maps := append(bytes.Repeat([]byte{0xa1}, deeperThanLimit), 0x01, 0x02)
+	// An array of one element and a map of one pair in turn, around the pair 1: 2.
+	mixed := append(bytes.Repeat([]byte{0x81, 0xa1}, deeperThanLimit/2), 0x01, 0x02)
 
 	t.Run("arrays and maps are refused past a limit and consume nothing", func(t *testing.T) {
 		require.Positive(t, openUntilRefused(t, arrays, openArray))
@@ -172,7 +130,7 @@ func TestNestingLimit(t *testing.T) {
 
 func TestNull(t *testing.T) {
 	t.Run("consumes null and undefined", func(t *testing.T) {
-		for _, head := range []byte{0xf6, 0xf7} {
+		for _, head := range []byte{0xf6, 0xf7} { // null, undefined
 			c := cursor.NewCursor([]byte{head, 0x01})
 
 			require.True(t, c.Null())

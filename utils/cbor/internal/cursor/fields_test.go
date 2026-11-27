@@ -142,11 +142,11 @@ func TestNewFields(t *testing.T) {
 // pair is a field NextField named and the integer value that followed it.
 type pair struct{ field, value int }
 
-// readPairs reads a struct of integer values to its end. A key that names no field is Unknown, and
-// its value is skipped and read as 0.
-func readPairs(t *testing.T, data []byte, fields cursor.Fields) []pair {
+// readPairs reads a struct of integer values to its end, which is followed by padding bytes. A key
+// that names no field is Unknown, and its value is skipped and read as 0.
+func readPairs(t *testing.T, data []byte, fields cursor.Fields, padding int) []pair {
 	t.Helper()
-	c := cursor.NewCursor(data)
+	c := cursor.NewCursor(slices.Concat(data, bytes.Repeat([]byte{0xf6}, padding))) // nulls
 	s, err := c.OpenStruct(fields)
 	require.NoError(t, err)
 
@@ -156,7 +156,7 @@ func readPairs(t *testing.T, data []byte, fields cursor.Fields) []pair {
 		require.NoError(t, err)
 		switch field {
 		case cursor.Done:
-			require.Zero(t, c.Len(), "the map is read to its end")
+			require.Equal(t, padding, c.Len(), "the map is read to its end")
 			return got
 		case cursor.Unknown:
 			require.NoError(t, c.Skip())
@@ -234,9 +234,16 @@ func TestNextField(t *testing.T) {
 			[]pair{{cursor.Unknown, 0}},
 		},
 	}
+	// NextField compares a key a word at a time when 24 bytes of input are left, and byte by byte
+	// otherwise, so every case runs with and without that many bytes after the map.
+	paddings := map[string]int{"at the end of the input": 0, "before 24 more bytes": 24}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, readPairs(t, tt.data, tt.fields))
+			for name, padding := range paddings {
+				t.Run(name, func(t *testing.T) {
+					require.Equal(t, tt.want, readPairs(t, tt.data, tt.fields, padding))
+				})
+			}
 		})
 	}
 
@@ -277,7 +284,7 @@ func TestNextField(t *testing.T) {
 		}
 		for name, next := range next {
 			t.Run(name, func(t *testing.T) {
-				data := slices.Concat([]byte{0xa1}, textItem("A"), []byte{0x01}, nested(200, 0x01))
+				data := slices.Concat([]byte{0xa1}, textItem("A"), []byte{0x01}, nested(deeperThanLimit, 0x01))
 				c := cursor.NewCursor(data)
 				s, err := c.OpenStruct(fields)
 				require.NoError(t, err)
@@ -305,7 +312,7 @@ func TestOpenStruct(t *testing.T) {
 	fields := newFields(t, "A")
 
 	t.Run("a map is opened", func(t *testing.T) {
-		c := cursor.NewCursor(slices.Concat([]byte{0xa0}, nested(200, 0x01)))
+		c := cursor.NewCursor(slices.Concat([]byte{0xa0}, nested(deeperThanLimit, 0x01)))
 
 		_, err := c.OpenStruct(fields)
 		require.NoError(t, err)
@@ -369,7 +376,11 @@ func TestKey(t *testing.T) {
 			err  error
 		}{
 			{"not UTF-8", []byte{0x62, 0xff, 0xfe}, cursor.ErrSyntax},
-			{"not UTF-8 in a long key", slices.Concat([]byte{0x78, 30}, bytes.Repeat([]byte{0xff}, 30)), cursor.ErrSyntax},
+			{
+				"not UTF-8 in a long key",
+				slices.Concat([]byte{0x78, 30}, bytes.Repeat([]byte{0xff}, 30)),
+				cursor.ErrSyntax,
+			},
 			{"a long key cut short", []byte{0x78, 30, 'A'}, cursor.ErrTruncated},
 		}
 		for _, tt := range tests {

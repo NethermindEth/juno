@@ -14,8 +14,7 @@ import (
 
 func TestBool(t *testing.T) {
 	for want, head := range map[bool]byte{false: 0xf4, true: 0xf5} {
-		c := cursor.NewCursor([]byte{head, 0x01})
-
+		c := cursor.NewCursor([]byte{head, 0x01}) // the boolean, then the integer 1
 		got, err := c.Bool()
 		require.NoError(t, err)
 		require.Equal(t, want, got)
@@ -23,7 +22,7 @@ func TestBool(t *testing.T) {
 	}
 
 	t.Run("null is not a boolean", func(t *testing.T) {
-		c := cursor.NewCursor([]byte{0xf6})
+		c := cursor.NewCursor([]byte{0xf6}) // null
 
 		_, err := c.Bool()
 		require.ErrorIs(t, err, cursor.ErrType)
@@ -33,7 +32,10 @@ func TestBool(t *testing.T) {
 
 func TestBytesInto(t *testing.T) {
 	t.Run("copies a byte string of the length of dst", func(t *testing.T) {
-		c := cursor.NewCursor([]byte{0x43, 0x01, 0x02, 0x03, 0xf6})
+		c := cursor.NewCursor([]byte{
+			0x43, 0x01, 0x02, 0x03, // a byte string of three bytes
+			0xf6, // null, to see where the string ends
+		})
 		dst := make([]byte, 3)
 
 		require.NoError(t, c.BytesInto(dst))
@@ -42,7 +44,7 @@ func TestBytesInto(t *testing.T) {
 	})
 
 	t.Run("an empty string fills an empty dst", func(t *testing.T) {
-		c := cursor.NewCursor([]byte{0x40})
+		c := cursor.NewCursor([]byte{0x40}) // an empty byte string
 
 		require.NoError(t, c.BytesInto(nil))
 		require.Zero(t, c.Len())
@@ -50,8 +52,8 @@ func TestBytesInto(t *testing.T) {
 
 	t.Run("a string of another length is refused and leaves dst alone", func(t *testing.T) {
 		for name, data := range map[string][]byte{
-			"shorter": {0x42, 0x01, 0x02},
-			"longer":  {0x44, 0x01, 0x02, 0x03, 0x04},
+			"shorter": {0x42, 0x01, 0x02},             // a byte string of two bytes
+			"longer":  {0x44, 0x01, 0x02, 0x03, 0x04}, // a byte string of four bytes
 		} {
 			t.Run(name, func(t *testing.T) {
 				c := cursor.NewCursor(data)
@@ -67,7 +69,7 @@ func TestBytesInto(t *testing.T) {
 
 func TestBytes(t *testing.T) {
 	t.Run("returns a copy", func(t *testing.T) {
-		data := []byte{0x42, 0x01, 0x02}
+		data := []byte{0x42, 0x01, 0x02} // a byte string of two bytes
 		c := cursor.NewCursor(data)
 
 		got, err := c.Bytes()
@@ -79,7 +81,7 @@ func TestBytes(t *testing.T) {
 	})
 
 	t.Run("an empty string is an empty slice that is not nil", func(t *testing.T) {
-		c := cursor.NewCursor([]byte{0x40})
+		c := cursor.NewCursor([]byte{0x40}) // an empty byte string
 
 		got, err := c.Bytes()
 		require.NoError(t, err)
@@ -89,7 +91,10 @@ func TestBytes(t *testing.T) {
 }
 
 func TestBytesBorrowed(t *testing.T) {
-	data := []byte{0x42, 0x01, 0x02, 0xf6}
+	data := []byte{
+		0x42, 0x01, 0x02, // a byte string of two bytes
+		0xf6, // null, to see where the string ends
+	}
 	c := cursor.NewCursor(data)
 
 	got, err := c.BytesBorrowed()
@@ -101,7 +106,7 @@ func TestBytesBorrowed(t *testing.T) {
 
 func TestString(t *testing.T) {
 	t.Run("returns a copy", func(t *testing.T) {
-		data := []byte{0x62, 'h', 'i'}
+		data := []byte{0x62, 'h', 'i'} // the text "hi"
 		c := cursor.NewCursor(data)
 
 		got, err := c.String()
@@ -113,7 +118,7 @@ func TestString(t *testing.T) {
 	})
 
 	t.Run("text that is not UTF-8 is refused and consumes nothing", func(t *testing.T) {
-		c := cursor.NewCursor([]byte{0x62, 0xff, 0xfe})
+		c := cursor.NewCursor([]byte{0x62, 0xff, 0xfe}) // a text string of two bytes that are not UTF-8
 
 		_, err := c.String()
 		require.ErrorIs(t, err, cursor.ErrSyntax)
@@ -123,17 +128,17 @@ func TestString(t *testing.T) {
 
 func TestBigInt(t *testing.T) {
 	t.Run("a bignum of any width", func(t *testing.T) {
-		wide := []byte{0x49, 0x01, 0, 0, 0, 0, 0, 0, 0, 0} // 2^64
+		wide := []byte{0x49, 0x01, 0, 0, 0, 0, 0, 0, 0, 0} // a byte string of nine bytes, 2^64
 		for name, tt := range map[string]struct {
 			data []byte
 			want string
 		}{
 			"tag 2 is positive":      {append([]byte{0xc2}, wide...), "18446744073709551616"},
 			"tag 3 is negative":      {append([]byte{0xc3}, wide...), "-18446744073709551617"},
-			"an empty tag 2 is zero": {[]byte{0xc2, 0x40}, "0"},
+			"an empty tag 2 is zero": {[]byte{0xc2, 0x40}, "0"}, // tag 2, an empty byte string
 		} {
 			t.Run(name, func(t *testing.T) {
-				c := cursor.NewCursor(append(tt.data, 0xf6))
+				c := cursor.NewCursor(append(tt.data, 0xf6)) // null, to see where the bignum ends
 
 				got, err := c.BigInt()
 				require.NoError(t, err)
@@ -144,6 +149,7 @@ func TestBigInt(t *testing.T) {
 	})
 
 	t.Run("a plain integer is a big integer", func(t *testing.T) {
+		// The integer 2^64-1, in a head and eight bytes.
 		c := cursor.NewCursor([]byte{0x1b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
 
 		got, err := c.BigInt()
@@ -157,9 +163,11 @@ func TestBigInt(t *testing.T) {
 			data []byte
 			err  error
 		}{
+			// Tag 4, then a byte string of two bytes.
 			{"another tag", []byte{0xc4, 0x42, 0x01, 0x02}, cursor.ErrUnsupported},
+			// Tag 2, then the integer 1.
 			{"a bignum that does not hold a byte string", []byte{0xc2, 0x01}, cursor.ErrSyntax},
-			{"a tag with nothing after it", []byte{0xc2}, cursor.ErrTruncated},
+			{"a tag with nothing after it", []byte{0xc2}, cursor.ErrTruncated}, // tag 2
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
