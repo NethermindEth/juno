@@ -55,5 +55,13 @@
 
   "getEvents-blockNumber": "getEvents --block-id number",
   "getEvents-blockHash": "getEvents --block-id hash",
-  "getStorageProof": "getStorageProof"
+  "getStorageProof": "getStorageProof",
+
+  "call": "call --count 200",
+  "estimateFee": "estimateFee --count 200",
+  "estimateFee-skipValidate": "estimateFee --skip-validate --count 200",
+  "estimateFee-txs2": "estimateFee --num-txs 2 --count 200",
+  "simulateTransactions": "simulateTransactions --count 200",
+  "simulateTransactions-skipFeeCharge": "simulateTransactions --skip-fee-charge --count 200",
+  "simulateTransactions-initialReads": "simulateTransactions --return-initial-reads --count 200"
 }

@@ -6,10 +6,9 @@ Sample a Starknet node into a seeded JSON-RPC corpus, then replay it with
 ## Methods
 
 Run `./build/corpus-gen --help` for the full list. One subcommand per method
-(`starknet_` prefix dropped), covering the read and trace APIs plus
-`starknet_getCompiledCasm`; the write and websocket APIs and the execution
-methods (`starknet_call`, `starknet_estimateFee`, `starknet_estimateMessageFee`,
-`starknet_simulateTransactions`, `starknet_getMessagesStatus`) are not
+(`starknet_` prefix dropped), covering the read, trace and execution APIs plus
+`starknet_getCompiledCasm`; the write and websocket APIs,
+`starknet_estimateMessageFee` and `starknet_getMessagesStatus` are not
 generated.
 
 Method-specific flags:
@@ -25,6 +24,24 @@ Method-specific flags:
 | `getEvents`       | `--addresses`                               | emitter addresses in the filter (0 = no address filter) |
 | `getEvents`       | `--keys`                                    | key counts per position, e.g. `1,0,2` (0 = wildcard; omit for no keys filter) |
 | `getStorageProof` | `--num-classes`/`--num-contracts`/`--num-keys` | trie members per request (queried at `latest`)  |
+| `estimateFee`/`simulateTransactions` | `--num-txs`          | broadcasted transactions per request, one value or `min,max` uniform draw (default 1) |
+| `estimateFee`/`simulateTransactions` | `--tx-types`         | transaction types to take from the block: `INVOKE`, `DECLARE`, `DEPLOY_ACCOUNT` (default `INVOKE,DEPLOY_ACCOUNT`) |
+| `estimateFee`     | `--skip-validate`                           | add `SKIP_VALIDATE` to `simulation_flags`          |
+| `simulateTransactions` | `--skip-validate`/`--skip-fee-charge`/`--return-initial-reads` | add those flags to `simulation_flags` |
+| execution subcommands | `--verify`                              | replay each sample against the source node and draw again when it fails (default on) |
+
+### Execution methods
+
+`estimateFee`, `simulateTransactions` and `call` build each request for block N
+from the transactions of block N+1.
+
+- `--block-id latest` is not supported, because block N+1 must exist.
+- `--block-start` defaults to 10000 blocks below `--block-end`. The source node
+  must keep the state of the sampled blocks.
+- `--verify` runs each sample on the source node, and `--batch N` multiplies
+  that work by N.
+- `DECLARE` in `--tx-types` adds a full contract class to each transaction. The
+  benchmark then measures compilation, not execution.
 
 ## Use
 
