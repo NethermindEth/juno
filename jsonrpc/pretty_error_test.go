@@ -1,6 +1,7 @@
 package jsonrpc_test
 
 import (
+	"encoding/json"
 	"io"
 	"strings"
 	"testing"
@@ -24,6 +25,11 @@ var parseErrorTests = map[string]struct {
 	"invalid json batch path": {
 		req: `[{]`,
 		res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"[{]\n  ^\nunexpected ']', expected a string key or '}' [line 1, position 3]"},"id":null}`,
+	},
+
+	"invalid UTF-8 counts replacement runes": {
+		req: `{"jsonrpc":"2.0","method":"x","p":"` + "\xa3\xa3\xa3" + `","id":@}`,
+		res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"jsonrpc\":\"2.0\",\"method\":\"x\",\"p\":\"���\",\"id\":@}\n                                             ^\nunexpected '@', expected a value [line 1, position 46]"},"id":null}`,
 	},
 
 	"missing closing brace": {
@@ -265,6 +271,60 @@ func TestHandleParseErrorChunked(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotNil(t, httpHeader)
 			assert.JSONEq(t, test.res, string(res))
+		})
+	}
+}
+
+func TestHandleParseErrorLargeChunks(t *testing.T) {
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
+	cases := map[string]struct {
+		padding string
+		message string
+	}{
+		"split four-byte runes": {
+			padding: strings.Repeat("👍", 378),
+			message: "unexpected '@', expected a value [line 1, position 427]",
+		},
+		"split four-byte runes in a shorter request": {
+			padding: strings.Repeat("👍", 251),
+			message: "unexpected '@', expected a value [line 1, position 300]",
+		},
+		"invalid UTF-8 in the discarded prefix": {
+			padding: strings.Repeat("\xa3", 800),
+			message: "unexpected '@', expected a value [line 1, position 849]",
+		},
+		"valid and invalid UTF-8 in the discarded prefix": {
+			padding: strings.Repeat("é\xa3€\xa3👍", 160),
+			message: "unexpected '@', expected a value [line 1, position 849]",
+		},
+	}
+	for desc, test := range cases {
+		t.Run(desc, func(t *testing.T) {
+			for name, chunkSize := range map[string]int{"509-byte reads": 509, "510-byte reads": 510, "511-byte reads": 511} {
+				t.Run(name, func(t *testing.T) {
+					request := `{"jsonrpc":"2.0","method":"x","padding":"` + test.padding + `","id":@` + strings.Repeat("x", 96) + `}`
+					reader := &maxChunkReader{Reader: strings.NewReader(request), size: chunkSize}
+					res, httpHeader, err := server.HandleReader(t.Context(), reader)
+					require.NoError(t, err)
+					assert.NotNil(t, httpHeader)
+					var response struct {
+						Error struct {
+							Code int
+							Data string
+						}
+					}
+					require.NoError(t, json.Unmarshal(res, &response))
+					assert.Equal(t, jsonrpc.InvalidJSON, response.Error.Code)
+					rows := strings.Split(response.Error.Data, "\n")
+					require.Len(t, rows, 3)
+					assert.Equal(t, test.message, rows[2])
+					marker := strings.IndexByte(rows[1], '^')
+					line := []rune(rows[0])
+					require.GreaterOrEqual(t, marker, 0)
+					require.Less(t, marker, len(line))
+					assert.Equal(t, '@', line[marker], "caret must point at the offending token")
+				})
+			}
 		})
 	}
 }
