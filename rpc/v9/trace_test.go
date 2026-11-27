@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,17 +12,15 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
-	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/rpc/rpctest"
 	rpc "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils/log"
@@ -30,6 +29,313 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
+
+func TestCall(t *testing.T) {
+	t.Parallel()
+	recipient := felt.FromUint64[felt.Address](0x105)
+
+	t.Run("balanceOf reads the state of the block", func(t *testing.T) {
+		t.Parallel()
+		devnet := rpctest.NewDevnet(t)
+		sender := devnet.Account(t, "0x101")
+		// genesis_prefund_accounts.json mints this amount of STRK to 0x101.
+		genesisBalance := hexToBig(t, "0x66bc75e2d63100000")
+
+		transfer := sender.InvokeV3(t, 0, rpctest.TransferSTRK(&recipient, 1000))
+		devnet.Submit(t, transfer)
+		devnet.MakeBlock(t)
+		fee := hexToBig(t, getReceipt(t, devnet.Node, &transfer.Hash).ActualFee.Amount)
+		balanceAfter := new(big.Int).Sub(genesisBalance, new(big.Int).Add(big.NewInt(1000), fee))
+
+		block1, err := devnet.Chain.BlockHeaderByNumber(1)
+		require.NoError(t, err)
+		require.NoError(t, devnet.Chain.SetL1Head(&core.L1Head{
+			BlockNumber: block1.Number,
+			BlockHash:   block1.Hash,
+			StateRoot:   block1.GlobalStateRoot,
+		}))
+
+		tests := []struct {
+			blockID string
+			want    *big.Int
+		}{
+			{blockID: `"latest"`, want: balanceAfter},
+			{blockID: `"pre_confirmed"`, want: balanceAfter},
+			{blockID: `{"block_number":2}`, want: balanceAfter},
+			{blockID: `{"block_number":1}`, want: genesisBalance},
+			{blockID: fmt.Sprintf(`{"block_hash":%q}`, block1.Hash), want: genesisBalance},
+			{blockID: `"l1_accepted"`, want: genesisBalance},
+		}
+		for _, test := range tests {
+			t.Run(test.blockID, func(t *testing.T) {
+				assert.Equal(t, test.want, strkBalance(t, devnet.Node, test.blockID, &sender.Address))
+			})
+		}
+		assert.Equal(t, big.NewInt(1000), strkBalance(t, devnet.Node, `"latest"`, &recipient))
+	})
+
+	t.Run("errors", func(t *testing.T) {
+		t.Parallel()
+		devnet := rpctest.NewDevnet(t)
+		devnet.MakeBlock(t)
+		emptyChain := rpctest.NewSepolia(t, 0)
+		unknown := felt.FromUint64[felt.Address](0xdead)
+		blockNotFound := `{"code":24,"message":"Block not found"}`
+
+		tests := []struct {
+			name    string
+			node    *rpctest.Node
+			params  string
+			wantErr string
+		}{
+			{
+				name:    "unknown contract",
+				node:    devnet.Node,
+				params:  callParams(&unknown, "balanceOf", `"latest"`),
+				wantErr: `{"code":20,"message":"Contract not found"}`,
+			},
+			{
+				name:    "unknown contract at an older block",
+				node:    devnet.Node,
+				params:  callParams(&unknown, "balanceOf", `{"block_number":1}`),
+				wantErr: `{"code":20,"message":"Contract not found"}`,
+			},
+			{
+				name:    "missing block number",
+				node:    devnet.Node,
+				params:  callParams(&strk, "balanceOf", `{"block_number":99}`, "0x101"),
+				wantErr: blockNotFound,
+			},
+			{
+				name:    "missing block hash",
+				node:    devnet.Node,
+				params:  callParams(&strk, "balanceOf", `{"block_hash":"0x123"}`, "0x101"),
+				wantErr: blockNotFound,
+			},
+			{
+				name:    "no L1 head",
+				node:    devnet.Node,
+				params:  callParams(&strk, "balanceOf", `"l1_accepted"`, "0x101"),
+				wantErr: blockNotFound,
+			},
+			{
+				name:    "chain with no blocks",
+				node:    emptyChain,
+				params:  callParams(&strk, "balanceOf", `"latest"`, "0x101"),
+				wantErr: blockNotFound,
+			},
+			{
+				name:    "pre_confirmed on a chain with no blocks",
+				node:    emptyChain,
+				params:  callParams(&strk, "balanceOf", `"pre_confirmed"`, "0x101"),
+				wantErr: blockNotFound,
+			},
+			{
+				name:    "unknown entry point",
+				node:    devnet.Node,
+				params:  callParams(&strk, "no_such_function", `"latest"`),
+				wantErr: `{"code":21,"message":"Requested entrypoint does not exist in the contract"}`,
+			},
+			{
+				name:   "the contract fails",
+				node:   devnet.Node,
+				params: callParams(&strk, "transfer", `"latest"`, recipient.String(), "0x1", "0x0"),
+				// "ERC20: transfer from 0": a call has no caller.
+				wantErr: `{"code":40,"message":"Contract error",` +
+					`"data":{"revert_error":"0x45524332303a207472616e736665722066726f6d2030"}}`,
+			},
+		}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				response := test.node.Call(t, rpcVersion, "starknet_call", test.params)
+				require.Empty(t, response.Result)
+				require.JSONEq(t, test.wantErr, string(response.Error))
+			})
+		}
+	})
+}
+
+type tracedBlockTransaction struct {
+	TransactionHash felt.TransactionHash `json:"transaction_hash"`
+	TraceRoot       json.RawMessage      `json:"trace_root"`
+}
+
+func TestTraceBlockTransactions(t *testing.T) {
+	t.Parallel()
+	recipient := felt.FromUint64[felt.Address](0x105)
+
+	t.Run("the traces equal the simulated traces", func(t *testing.T) {
+		t.Parallel()
+		devnet := rpctest.NewDevnet(t)
+		sender := devnet.Account(t, "0x101")
+		txns := []rpctest.Txn{
+			sender.InvokeV3(t, 0, rpctest.TransferSTRK(&recipient, 1000)),
+			sender.InvokeV3(t, 1, rpctest.Invocation{
+				To:       strk,
+				Selector: felt.UnsafeFromString[felt.Felt](selector("no_such_function")),
+			}),
+		}
+		devnet.Submit(t, txns...)
+		header := devnet.MakeBlock(t)
+
+		var simulated []struct {
+			TransactionTrace json.RawMessage `json:"transaction_trace"`
+		}
+		result := devnet.Result(t, rpcVersion, "starknet_simulateTransactions",
+			simulateParams(fmt.Sprintf(`{"block_number":%d}`, header.Number-1), `[]`, txns...))
+		require.NoError(t, json.Unmarshal(result, &simulated))
+
+		for _, blockID := range []string{
+			`"latest"`,
+			fmt.Sprintf(`{"block_number":%d}`, header.Number),
+			fmt.Sprintf(`{"block_hash":%q}`, header.Hash),
+		} {
+			t.Run(blockID, func(t *testing.T) {
+				var traces []tracedBlockTransaction
+				result := devnet.Result(t, rpcVersion, "starknet_traceBlockTransactions",
+					fmt.Sprintf(`{"block_id":%s}`, blockID))
+				require.NoError(t, json.Unmarshal(result, &traces))
+				require.Len(t, traces, len(txns))
+				for i := range txns {
+					assert.Equal(t, txns[i].Hash, traces[i].TransactionHash)
+					assert.Equal(t,
+						sortedSets(t, simulated[i].TransactionTrace),
+						sortedSets(t, traces[i].TraceRoot),
+					)
+				}
+			})
+		}
+	})
+
+	t.Run("old blocks come from the feeder", func(t *testing.T) {
+		t.Parallel()
+		sepolia := rpctest.NewSepolia(t, 4)
+		want, err := os.ReadFile("testdata/traces/sepolia_block_3.json")
+		require.NoError(t, err)
+
+		response := sepolia.Call(t, rpcVersion, "starknet_traceBlockTransactions",
+			`{"block_id":{"block_number":3}}`)
+		require.Empty(t, response.Error)
+		assert.JSONEq(t, string(want), string(response.Result))
+		assert.Equal(t, "0", response.Header.Get("X-Cairo-Steps"))
+	})
+
+	t.Run("errors", func(t *testing.T) {
+		t.Parallel()
+		devnet := rpctest.NewDevnet(t)
+		emptyChain := rpctest.NewSepolia(t, 0)
+		blockNotFound := `{"code":24,"message":"Block not found"}`
+		preConfirmed := `{"code":70,"message":` +
+			`"This method does not support being called on the pre_confirmed block"}`
+
+		tests := []struct {
+			name    string
+			node    *rpctest.Node
+			blockID string
+			wantErr string
+		}{
+			{
+				name: "missing block number", node: devnet.Node, blockID: `{"block_number":99}`,
+				wantErr: blockNotFound,
+			},
+			{
+				name: "missing block hash", node: devnet.Node, blockID: `{"block_hash":"0x123"}`,
+				wantErr: blockNotFound,
+			},
+			{name: "no L1 head", node: devnet.Node, blockID: `"l1_accepted"`, wantErr: blockNotFound},
+			{name: "pre_confirmed", node: devnet.Node, blockID: `"pre_confirmed"`, wantErr: preConfirmed},
+			{
+				name: "latest of a chain with no blocks", node: emptyChain, blockID: `"latest"`,
+				wantErr: blockNotFound,
+			},
+			{
+				name: "pre_confirmed of a chain with no blocks", node: emptyChain, blockID: `"pre_confirmed"`,
+				wantErr: preConfirmed,
+			},
+		}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				response := test.node.Call(t, rpcVersion, "starknet_traceBlockTransactions",
+					fmt.Sprintf(`{"block_id":%s}`, test.blockID))
+				require.Empty(t, response.Result)
+				require.JSONEq(t, test.wantErr, string(response.Error))
+				assert.Equal(t, "0", response.Header.Get("X-Cairo-Steps"))
+			})
+		}
+	})
+}
+
+func TestTraceTransaction(t *testing.T) {
+	t.Parallel()
+	recipient := felt.FromUint64[felt.Address](0x105)
+
+	t.Run("the trace equals the trace in the block trace", func(t *testing.T) {
+		t.Parallel()
+		devnet := rpctest.NewDevnet(t)
+		sender := devnet.Account(t, "0x101")
+		txns := []rpctest.Txn{
+			sender.InvokeV3(t, 0, rpctest.TransferSTRK(&recipient, 1000)),
+			sender.InvokeV3(t, 1, rpctest.TransferSTRK(&recipient, 2000)),
+		}
+		devnet.Submit(t, txns...)
+		devnet.MakeBlock(t)
+
+		var traces []tracedBlockTransaction
+		result := devnet.Result(t, rpcVersion, "starknet_traceBlockTransactions", `{"block_id":"latest"}`)
+		require.NoError(t, json.Unmarshal(result, &traces))
+		for i := range txns {
+			got := devnet.Result(t, rpcVersion, "starknet_traceTransaction",
+				fmt.Sprintf(`{"transaction_hash":%q}`, txns[i].Hash.String()))
+			assert.Equal(t, sortedSets(t, traces[i].TraceRoot), sortedSets(t, got))
+		}
+	})
+
+	t.Run("a reverted transaction has the revert reason of its receipt", func(t *testing.T) {
+		t.Parallel()
+		devnet := rpctest.NewDevnet(t)
+		reverted := devnet.Account(t, "0x101").InvokeV3(t, 0, rpctest.Invocation{
+			To:       strk,
+			Selector: felt.UnsafeFromString[felt.Felt](selector("no_such_function")),
+		})
+		devnet.Submit(t, reverted)
+		devnet.MakeBlock(t)
+
+		got := getReceipt(t, devnet.Node, &reverted.Hash)
+		require.Equal(t, "REVERTED", got.ExecutionStatus)
+
+		var trace struct {
+			ExecuteInvocation struct {
+				RevertReason string `json:"revert_reason"`
+			} `json:"execute_invocation"`
+		}
+		result := devnet.Result(t, rpcVersion, "starknet_traceTransaction",
+			fmt.Sprintf(`{"transaction_hash":%q}`, reverted.Hash.String()))
+		require.NoError(t, json.Unmarshal(result, &trace))
+		assert.Equal(t, got.RevertReason, trace.ExecuteInvocation.RevertReason)
+	})
+
+	t.Run("old blocks come from the feeder", func(t *testing.T) {
+		t.Parallel()
+		sepolia := rpctest.NewSepolia(t, 4)
+		var traces []tracedBlockTransaction
+		result := sepolia.Result(t, rpcVersion, "starknet_traceBlockTransactions",
+			`{"block_id":{"block_number":3}}`)
+		require.NoError(t, json.Unmarshal(result, &traces))
+
+		for _, traced := range traces {
+			got := sepolia.Result(t, rpcVersion, "starknet_traceTransaction",
+				fmt.Sprintf(`{"transaction_hash":%q}`, traced.TransactionHash.String()))
+			assert.JSONEq(t, string(traced.TraceRoot), string(got))
+		}
+	})
+
+	t.Run("unknown transaction", func(t *testing.T) {
+		t.Parallel()
+		response := rpctest.NewDevnet(t).Call(t, rpcVersion, "starknet_traceTransaction",
+			`{"transaction_hash":"0x123"}`)
+		require.JSONEq(t, `{"code":29,"message":"Transaction hash not found"}`, string(response.Error))
+	})
+}
 
 type expectedBlockTrace struct {
 	blockHash   string
@@ -84,11 +390,6 @@ func TestTraceFallback(t *testing.T) {
 
 	t.Run("Sepolia", func(t *testing.T) {
 		tests := map[string]expectedBlockTrace{
-			"old block": {
-				blockHash:   "0x37644818236ee05b7e3b180bed64ea70ee3dd1553ca334a5c2a290ee276f380",
-				blockNumber: 3,
-				wantTrace:   `[ { "trace_root": { "type": "INVOKE", "validate_invocation": { "contract_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "entry_point_selector": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775", "calldata": [ "0x1", "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8", "0x0", "0x4", "0x4", "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1", "0x0", "0x0", "0x1" ], "caller_address": "0x0", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execute_invocation": { "contract_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "entry_point_selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad", "calldata": [ "0x1", "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8", "0x0", "0x4", "0x4", "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1", "0x0", "0x0", "0x1" ], "caller_address": "0x0", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x23be95f90bf41685e18a4356e57b0cfdc1da22bf382ead8b64108353915c1e5" ], "calls": [ { "contract_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "entry_point_selector": "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8", "calldata": [ "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1", "0x0", "0x0", "0x1" ], "caller_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x23be95f90bf41685e18a4356e57b0cfdc1da22bf382ead8b64108353915c1e5" ], "calls": [ { "contract_address": "0x23be95f90bf41685e18a4356e57b0cfdc1da22bf382ead8b64108353915c1e5", "entry_point_selector": "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194", "calldata": [], "caller_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "class_hash": "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1", "entry_point_type": "CONSTRUCTOR", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false } ], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false } ], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execution_resources": { "l1_gas": 5, "l2_gas": 10, "l1_data_gas": 15 } }, "transaction_hash": "0x3f786ecc4955a2602c91a291328518ef866cb7f3d50e4b16fd42282952623aa" }, { "trace_root": { "type": "INVOKE", "validate_invocation": { "contract_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "entry_point_selector": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775", "calldata": [ "0x1", "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8", "0x0", "0x4", "0x4", "0x4f23a756b221f8ce46b72e6a6b10ee7ee6cf3b59790e76e02433104f9a8c5d1", "0x0", "0x0", "0x1" ], "caller_address": "0x0", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execute_invocation": { "contract_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "entry_point_selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad", "calldata": [ "0x1", "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8", "0x0", "0x4", "0x4", "0x4f23a756b221f8ce46b72e6a6b10ee7ee6cf3b59790e76e02433104f9a8c5d1", "0x0", "0x0", "0x1" ], "caller_address": "0x0", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x6d8ff7b212b08760c82e4a8f354f6ebc69d748290fa38e92eb859726a88f379" ], "calls": [ { "contract_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "entry_point_selector": "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8", "calldata": [ "0x4f23a756b221f8ce46b72e6a6b10ee7ee6cf3b59790e76e02433104f9a8c5d1", "0x0", "0x0", "0x1" ], "caller_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x6d8ff7b212b08760c82e4a8f354f6ebc69d748290fa38e92eb859726a88f379" ], "calls": [ { "contract_address": "0x6d8ff7b212b08760c82e4a8f354f6ebc69d748290fa38e92eb859726a88f379", "entry_point_selector": "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194", "calldata": [], "caller_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "class_hash": "0x4f23a756b221f8ce46b72e6a6b10ee7ee6cf3b59790e76e02433104f9a8c5d1", "entry_point_type": "CONSTRUCTOR", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false } ], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false } ], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execution_resources": { "l1_gas": 5, "l2_gas": 10, "l1_data_gas": 15 } }, "transaction_hash": "0x4010bd7b00e591c163729aa501691e89784c2afe77d71f7b27613e377738843" } ]`,
-			},
 			// The newer block still needs to have starknet_version <= 0.13.1 to be fetched from the feeder
 			"newer block": {
 				blockHash:   "0x733495d0744edd9785b400408fa87c8ad599f81859df544897f80a3fceab422",
@@ -296,7 +597,7 @@ func TestTransactionTraceValidation(t *testing.T) {
 	}
 }
 
-func TestTraceTransaction(t *testing.T) {
+func TestTraceTransactionWithMockedReader(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -307,19 +608,6 @@ func TestTraceTransaction(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, mockVM, log.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
-		t.Run("key not found", func(t *testing.T) {
-			hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xBBBB")
-			// Receipt() returns error related to db
-			mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
-				Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-			mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
-
-			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
-			assert.Empty(t, trace)
-			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
-			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
-		})
-
 		t.Run("other error", func(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xBBBB")
 			// The tx-hash index lookup fails for a non-missing-key reason
@@ -332,77 +620,6 @@ func TestTraceTransaction(t *testing.T) {
 			assert.Equal(t, rpccore.ErrInternal.CloneWithData(errors.New("database error")), err)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
 		})
-	})
-	t.Run("ok", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.TransactionHash](
-			"0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0",
-		)
-		tx := &core.DeclareTransaction{
-			TransactionHash: hash,
-			ClassHash:       felt.NewUnsafeFromString[felt.ClassHash]("0x000000000"),
-			Version:         felt.NewFromUint64[core.TransactionVersion](1),
-		}
-
-		header := &core.Header{
-			Hash:             felt.NewUnsafeFromString[felt.Felt]("0xCAFEBABE"),
-			ParentHash:       felt.NewUnsafeFromString[felt.Felt]("0x0"),
-			SequencerAddress: felt.NewUnsafeFromString[felt.Address]("0X111"),
-			L1GasPriceETH:    felt.NewUnsafeFromString[felt.Felt]("0x1"),
-			ProtocolVersion:  "99.12.3",
-			L1DAMode:         core.Calldata,
-		}
-		block := &core.Block{
-			Header:       header,
-			Transactions: []core.Transaction{tx},
-		}
-		declaredClass := &core.DeclaredClassDefinition{
-			At:    3002,
-			Class: &core.SierraClass{},
-		}
-
-		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
-		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).Return(header.Number, uint64(0), nil)
-		mockReader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil)
-		mockReader.EXPECT().TransactionsByBlockNumber(header.Number).
-			Return(block.Transactions, nil)
-
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
-		headState := mocks.NewMockStateReader(mockCtrl)
-		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
-		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
-
-		vmTrace, err := readTestData[vm.TransactionTrace]("traces/vm_transaction_trace.json")
-		require.NoError(t, err)
-
-		gc := []core.GasConsumed{{L1Gas: 2, L1DataGas: 3, L2Gas: 4}}
-		overallFee := []*felt.Felt{felt.NewFromUint64[felt.Felt](1)}
-
-		stepsUsed := uint64(123)
-		stepsUsedStr := "123"
-
-		mockVM.EXPECT().Trace(
-			[]core.Transaction{tx},
-			[]core.ClassDefinition{declaredClass.Class},
-			[]*felt.Felt{},
-			&vm.BlockInfo{Header: header},
-			gomock.Any(),
-			vm.TraceOptions{}).Return(vm.ExecutionResults{
-			OverallFees: overallFee,
-			GasConsumed: gc,
-			Traces:      []vm.TransactionTrace{vmTrace},
-			NumSteps:    stepsUsed,
-		}, nil)
-
-		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
-		require.Nil(t, rpcErr)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
-
-		vmTrace.ExecutionResources = &vm.ExecutionResources{
-			L1Gas:     2,
-			L1DataGas: 3,
-			L2Gas:     4,
-		}
-		assert.Equal(t, rpc.AdaptVMTransactionTrace(&vmTrace), trace)
 	})
 
 	t.Run("pre_confirmed block", func(t *testing.T) {
@@ -696,43 +913,7 @@ func TestTraceTransaction(t *testing.T) {
 	})
 }
 
-func TestTraceBlockTransactions(t *testing.T) {
-	errTests := map[string]rpc.BlockID{
-		"latest":        blockIDLatest(t),
-		"hash":          blockIDHash(t, felt.NewFromUint64[felt.Felt](1)),
-		"number":        blockIDNumber(t, 2),
-		"pre_confirmed": blockIDPreConfirmed(t),
-		"l1_accepted":   blockIDL1Accepted(t),
-	}
-
-	for description, blockID := range errTests {
-		t.Run(description, func(t *testing.T) {
-			logger := log.NewNopZapLogger()
-			n := &networks.Mainnet
-			chain := blockchain.New(
-				memory.New(),
-				n,
-				blockchain.WithNewState(statetestutils.UseNewState()),
-			)
-			handler := rpc.New(chain, nil, nil, logger)
-
-			if description == "pre_confirmed" {
-				mockCtrl := gomock.NewController(t)
-				t.Cleanup(mockCtrl.Finish)
-
-				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
-				assert.Nil(t, update)
-				assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
-				assert.Equal(t, rpccore.ErrCallOnPreConfirmed, rpcErr)
-			} else {
-				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
-				assert.Nil(t, update)
-				assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
-				assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-			}
-		})
-	}
-
+func TestTraceBlockTransactionsWithMockedReader(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	n := &networks.Mainnet
@@ -1211,7 +1392,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 	})
 }
 
-func TestCall(t *testing.T) {
+func TestCallWithMockedVM(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -1220,205 +1401,7 @@ func TestCall(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, mockVM, log.NewNopZapLogger())
 
-	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
-
-		blockID := blockIDLatest(t)
-		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
-		require.Nil(t, res)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(new(felt.Zero[felt.Felt]())).Return(
-			nil,
-			nil,
-			db.ErrKeyNotFound,
-		)
-
-		blockID := blockIDHash(t, new(felt.Zero[felt.Felt]()))
-		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
-		require.Nil(t, res)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
-
-		blockID := blockIDNumber(t, 0)
-		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
-		require.Nil(t, res)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-	})
-
 	mockState := mocks.NewMockStateReader(mockCtrl)
-
-	t.Run("call - unknown contract", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(new(felt.Zero[felt.Address]())).Return(
-			felt.Zero[felt.ClassHash](),
-			errors.New("unknown contract"),
-		)
-
-		blockID := blockIDLatest(t)
-		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
-		require.Nil(t, res)
-		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
-	})
-
-	t.Run("ok", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
-
-		contractAddr := felt.NewFromUint64[felt.Address](1)
-		selector := felt.NewFromUint64[felt.Felt](2)
-		classHash := felt.NewFromUint64[felt.ClassHash](3)
-		calldata := []felt.Felt{
-			felt.FromUint64[felt.Felt](4),
-			felt.FromUint64[felt.Felt](5),
-		}
-		expectedRes := vm.CallResult{Result: []*felt.Felt{
-			felt.NewFromUint64[felt.Felt](6),
-			felt.NewFromUint64[felt.Felt](7),
-		}}
-
-		headsHeader := &core.Header{
-			Number:    9,
-			Timestamp: 101,
-		}
-
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
-		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
-		mockVM.EXPECT().Call(
-			&vm.CallInfo{
-				ContractAddress: contractAddr,
-				ClassHash:       classHash,
-				Selector:        selector,
-				Calldata:        calldata,
-			},
-			&vm.BlockInfo{
-				Header: headsHeader,
-			},
-			gomock.Any(),
-			uint64(1337),
-			uint64(1338),
-			true,
-			false,
-		).Return(expectedRes, nil)
-
-		blockID := blockIDLatest(t)
-		res, rpcErr := handler.Call(
-			&rpc.FunctionCall{
-				ContractAddress:    *contractAddr,
-				EntryPointSelector: *selector,
-				Calldata:           rpc.CalldataInputs{Data: calldata},
-			},
-			&blockID,
-		)
-		require.Nil(t, rpcErr)
-		require.Equal(t, expectedRes.Result, res)
-	})
-
-	t.Run("pre_confirmed", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
-
-		contractAddr := felt.NewFromUint64[felt.Address](1)
-		selector := felt.NewFromUint64[felt.Felt](2)
-		classHash := felt.NewFromUint64[felt.ClassHash](3)
-		calldata := []felt.Felt{felt.FromUint64[felt.Felt](4)}
-		expectedRes := vm.CallResult{Result: []*felt.Felt{felt.NewFromUint64[felt.Felt](5)}}
-
-		// The contract is only deployed in the pre_confirmed block
-		stateDiff := core.EmptyStateDiff()
-		stateDiff.DeployedContracts[*contractAddr] = classHash
-		preConfirmed := pending.PreConfirmed{
-			Block:       &core.Block{Header: &core.Header{Number: 2, Timestamp: 102}},
-			StateUpdate: &core.StateUpdate{StateDiff: &stateDiff},
-		}
-		mockSyncReader.EXPECT().RequestPreConfirmedChain().
-			Return(mustNewChain(t, &preConfirmed), nil)
-		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
-			Return(mockState, nopCloser, nil)
-		mockVM.EXPECT().Call(
-			&vm.CallInfo{
-				ContractAddress: contractAddr,
-				ClassHash:       classHash,
-				Selector:        selector,
-				Calldata:        calldata,
-			},
-			&vm.BlockInfo{
-				Header: preConfirmed.Block.Header,
-			},
-			gomock.Any(),
-			uint64(1337),
-			uint64(1338),
-			true,
-			false,
-		).Return(expectedRes, nil)
-
-		blockID := blockIDPreConfirmed(t)
-		res, rpcErr := handler.Call(
-			&rpc.FunctionCall{
-				ContractAddress:    *contractAddr,
-				EntryPointSelector: *selector,
-				Calldata:           rpc.CalldataInputs{Data: calldata},
-			},
-			&blockID,
-		)
-		require.Nil(t, rpcErr)
-		require.Equal(t, expectedRes.Result, res)
-	})
-
-	t.Run("entrypoint not found error", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
-
-		contractAddr := felt.NewFromUint64[felt.Address](1)
-		selector := felt.NewFromUint64[felt.Felt](2)
-		classHash := felt.NewFromUint64[felt.ClassHash](3)
-		calldata := []felt.Felt{felt.FromUint64[felt.Felt](4)}
-		expectedRes := vm.CallResult{
-			Result:          []*felt.Felt{felt.NewUnsafeFromString[felt.Felt](rpccore.EntrypointNotFoundFelt)},
-			ExecutionFailed: true,
-		}
-		expectedErr := rpccore.ErrEntrypointNotFound
-
-		headsHeader := &core.Header{
-			Number:    9,
-			Timestamp: 101,
-		}
-
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
-		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
-		mockVM.EXPECT().Call(
-			&vm.CallInfo{
-				ContractAddress: contractAddr,
-				ClassHash:       classHash,
-				Selector:        selector,
-				Calldata:        calldata,
-			},
-			&vm.BlockInfo{
-				Header: headsHeader,
-			},
-			gomock.Any(),
-			uint64(1337),
-			uint64(1338),
-			true,
-			false,
-		).Return(expectedRes, nil)
-
-		blockID := blockIDLatest(t)
-		res, rpcErr := handler.Call(&rpc.FunctionCall{
-			ContractAddress:    *contractAddr,
-			EntryPointSelector: *selector,
-			Calldata:           rpc.CalldataInputs{Data: calldata},
-		},
-			&blockID,
-		)
-		require.Nil(t, res)
-		require.Equal(t, rpcErr, expectedErr)
-	})
 
 	t.Run("execution failed with execution failure and empty result", func(t *testing.T) {
 		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
