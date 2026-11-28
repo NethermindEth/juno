@@ -32,7 +32,7 @@ require (
 	github.com/rs/cors v1.11.1
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.10
+	github.com/spf13/pflag v1.1.0
 	github.com/spf13/viper v1.21.0
 	github.com/starknet-io/starknet-p2p-specs v0.1.1-0.20250223105617-bcfa353a169c
 	github.com/stretchr/testify v1.12.1
